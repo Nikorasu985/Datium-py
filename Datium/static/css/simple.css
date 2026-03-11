@@ -1,0 +1,90 @@
+/* Custom overrides for Datium Bootstrap Theme */
+
+body {
+    background-color: #f8f9fa;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+}
+
+/* Card Enhancements */
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Only hover effect for cards that are interactive or main containers */
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.card-header {
+    border-bottom: 0;
+    font-weight: 600;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* Table Enhancements */
+.table-responsive {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.data-table th {
+    background-color: #f1f3f5;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+/* Form controls */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.btn {
+    font-weight: 500;
+}
+
+/* Profile Avatar */
+.profile-avatar {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.avatar-overlay {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.position-relative:hover .avatar-overlay {
+    opacity: 1;
+}
+
+.profile-avatar:hover {
+    filter: brightness(0.9);
+}

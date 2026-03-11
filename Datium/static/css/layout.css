@@ -1,0 +1,77 @@
+.continuous-background {
+    background-attachment: fixed;
+    background-size: cover;
+}
+
+#landing-view {
+    position: relative;
+    min-height: 100vh;
+}
+
+#landing-view::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 30%, #ffffff 60%, #fafbfc 100%);
+    background-size: 200% 200%;
+    z-index: -1;
+    animation: backgroundMove 25s ease-in-out infinite;
+}
+
+.dark #landing-view::before {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(88, 28, 135, 0.3) 50%, #101922 100%);
+    background-size: 200% 200%;
+    animation: backgroundMove 40s ease-in-out infinite;
+}
+
+#dashboard-view {
+    position: relative;
+    min-height: 100vh;
+}
+
+#dashboard-view::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 30%, #ffffff 60%, #fafbfc 100%);
+    background-size: 200% 200%;
+    z-index: -1;
+    animation: backgroundMove 25s ease-in-out infinite;
+}
+
+.dark #dashboard-view::before {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(88, 28, 135, 0.3) 50%, #101922 100%);
+    background-size: 200% 200%;
+    animation: backgroundMove 40s ease-in-out infinite;
+}
+
+body.login-page, body.register-page {
+    position: relative;
+    min-height: 100vh;
+}
+
+body.login-page::before, body.register-page::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 30%, #ffffff 60%, #fafbfc 100%);
+    background-size: 200% 200%;
+    z-index: -1;
+    animation: backgroundMove 25s ease-in-out infinite;
+}
+
+.dark body.login-page::before, .dark body.register-page::before {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(88, 28, 135, 0.3) 50%, #101922 100%);
+    background-size: 200% 200%;
+    animation: backgroundMove 40s ease-in-out infinite;
+}
+

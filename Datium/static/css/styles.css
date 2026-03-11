@@ -1,0 +1,129 @@
+@import url('animations.css');
+@import url('components.css');
+@import url('layout.css');
+@import url('logo.css');
+@import url('utilities.css');
+
+/* Theme Transition */
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
+
+@keyframes gradientMove {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+body {
+    background: linear-gradient(-45deg, #f8fafc, #eef2ff, #f0f9ff, #f8fafc);
+    background-size: 400% 400%;
+    animation: gradientMove 15s ease infinite;
+}
+
+.dark body {
+    background: linear-gradient(-45deg, #0f172a, #111827, #0b1120, #0f172a) !important;
+    background-size: 400% 400%;
+}
+
+/* Card Depth for Light Mode */
+.bg-white {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.dark .bg-white,
+.dark .dark\:bg-gray-800 {
+    box-shadow: none;
+    border: 1px solid rgba(55, 65, 81, 0.5);
+}

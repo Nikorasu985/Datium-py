@@ -1,0 +1,180 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Restaurante - Datium</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #d4a373;
+            /* Gold/Beige for luxury feel */
+            --primary-dark: #9c6644;
+            --bg-glass: rgba(15, 23, 42, 0.65);
+            /* Darker glass for better contrast */
+            --bg-glass-heavy: rgba(15, 23, 42, 0.85);
+            --text-main: #f8fafc;
+            --text-muted: #e2e8f0;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            /* High quality restaurant background */
+            background-image: url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            backdrop-filter: brightness(0.7);
+            /* Dim the background image */
+        }
+
+        /* Sidebar - Glassmorphism */
+        .sidebar {
+            background-color: var(--bg-glass-heavy);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: center;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Hamburger Icon */
+        .hamburger-icon {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .hamburger-icon:hover {
+            background: rgba(212, 163, 115, 0.1);
+            border-color: rgba(212, 163, 115, 0.3);
+        }
+
+        .line {
+            width: 28px;
+            height: 3px;
+            background-color: var(--primary);
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(212, 163, 115, 0.5);
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2.5rem;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        /* Login Section - Glassmorphism */
+        .login-integration {
+            background-color: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            min-height: 600px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            /* Elegant font for headers */
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+
+        .iframe-container {
+            flex: 1;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <span>⚡</span>
+        </div>
+        <!-- Hamburger Icon -->
+        <div class="hamburger-icon">
+            <div class="line"></div>
+            <div class="line"></div>
+            <div class="line"></div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <section class="login-integration">
+            <div class="section-header">
+                <h2 class="section-title">Acceso Exclusivo</h2>
+                <span style="color: var(--text-muted); font-size: 1rem; font-style: italic;">Gestión Premium</span>
+            </div>
+            <div class="iframe-container">
+                <iframe src="login.html" title="Login de Personal"></iframe>
+            </div>
+        </section>
+    </main>
+</body>
+
+</html>

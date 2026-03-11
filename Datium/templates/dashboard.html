@@ -1,0 +1,477 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="dark" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Datium</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+    <script>
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</head>
+
+<body
+    class="font-display bg-background-light dark:bg-background-dark text-[#111418] dark:text-gray-200 overflow-hidden">
+
+    <div id="loadingOverlay"
+        class="fixed inset-0 bg-background-light/80 dark:bg-background-dark/90 backdrop-blur-md z-[100] hidden flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="relative">
+            <div class="h-24 w-24 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
+            <div
+                class="absolute top-0 left-0 h-24 w-24 rounded-full border-4 border-primary border-t-transparent animate-spin">
+            </div>
+            <img src="{% static 'img/Isotipo modo claro.jpeg' %}"
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 rounded-full block dark:hidden animate-pulse">
+            <img src="{% static 'img/Isotipo modo oscuro.jpeg' %}"
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 rounded-full hidden dark:block animate-pulse">
+        </div>
+        <h2 class="mt-8 text-2xl font-bold text-[#111418] dark:text-white animate-pulse">Guardando Sistema...</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Estamos configurando tu base de datos</p>
+    </div>
+
+    <div class="flex h-screen w-full">
+
+        <aside
+            class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between flex-shrink-0 h-full">
+            <div>
+
+                <div class="p-4 flex justify-center items-center h-60">
+                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}"
+                        class="h-full w-auto object-contain block dark:hidden hover:scale-105 transition-transform duration-300 p-2"
+                        alt="Datium">
+                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}"
+                        class="h-full w-auto object-contain hidden dark:block hover:scale-105 transition-transform duration-300 p-2"
+                        alt="Datium">
+                </div>
+
+
+                <div class="px-6 mb-6">
+                    <button onclick="toggleTema()"
+                        class="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-600 dark:text-gray-400">
+                        <span class="material-symbols-outlined text-xl">dark_mode</span>
+                        <span>Modo Oscuro</span>
+                    </button>
+                </div>
+
+
+                <nav class="px-4 flex flex-col gap-2">
+                    <a href="dashboard.html"
+                        class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
+                        <span class="material-symbols-outlined">dns</span>
+                        dashboard
+                    </a>
+
+                    <a href="connections.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">cable</span>
+                        Conexiones
+                    </a>
+
+                    <a href="audit.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">history</span>
+                        Auditoría
+                    </a>
+                </nav>
+            </div>
+
+
+            <div
+                class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white/30 dark:bg-gray-900/30 backdrop-blur-md">
+
+                <a href="profile.html"
+                    class="flex items-center gap-3 mb-4 px-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors p-2 cursor-pointer group">
+                    <div id="userAvatarContainer"
+                        class="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-gray-800 overflow-hidden group-hover:ring-primary transition-all">
+                        <span id="userInitial">U</span>
+                        <img id="userAvatar" src="" class="h-full w-full object-cover hidden" alt="Avatar">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="userName"
+                            class="text-sm font-bold truncate text-[#111418] dark:text-white group-hover:text-primary transition-colors">
+                            Cargando...
+                        </p>
+                        <p id="userEmail" class="text-xs text-gray-500 truncate">...</p>
+                    </div>
+                </a>
+
+                <button onclick="logout()"
+                    class="flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-lg">logout</span>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <main
+            class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-6 w-full">
+
+            <!-- Mobile Header -->
+            <div class="flex items-center justify-between mb-6 md:hidden">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()"
+                        class="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
+                        <span class="material-symbols-outlined">menu</span>
+                    </button>
+                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-8 w-auto block dark:hidden" alt="Datium">
+                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-8 w-auto hidden dark:block" alt="Datium">
+                </div>
+                <div id="mobileUserAvatar"
+                    class="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+                    U</div>
+            </div>
+
+            <div class="max-w-7xl mx-auto space-y-6 relative z-10 w-full">
+
+
+                <div id="createSystemContainer"
+                    class="hidden transform transition-all duration-500 ease-out origin-top z-50">
+                    <div
+                        class="bg-white/90 dark:bg-[#151f2b]/95 backdrop-blur-2xl rounded-3xl p-1 border border-white/20 dark:border-gray-700/50 shadow-2xl overflow-hidden ring-1 ring-black/5">
+                        <div
+                            class="h-1.5 w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-80">
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold text-[#111418] dark:text-white flex items-center gap-3">
+                                    <div class="p-1.5 bg-primary/10 rounded-xl">
+                                        <span class="material-symbols-outlined text-primary text-xl">storage</span>
+                                    </div>
+                                    <span id="formTitle">Crear Nuevo Sistema</span>
+                                </h3>
+                                <button onclick="toggleCreateForm()"
+                                    class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 text-gray-400 hover:text-red-500 transition-colors">
+                                    <span class="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+                            <iframe id="systemFormFrame" src="system_form.html"
+                                class="w-full h-[450px] border-none rounded-xl bg-gray-50/50 dark:bg-black/20"
+                                title="Formulario Sistema"></iframe>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="passwordPromptModal"
+                    class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center transition-opacity duration-300">
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-gray-700 transform scale-100 transition-transform">
+                        <div class="text-center mb-6">
+                            <div
+                                class="h-12 w-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-3 text-red-500">
+                                <span class="material-symbols-outlined text-2xl">lock</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-[#111418] dark:text-white">Acceso Restringido</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Este sistema está protegido.</p>
+                        </div>
+
+                        <div class="mb-5">
+                            <label
+                                class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Contraseña</label>
+                            <input type="password" id="promptPasswordInput"
+                                class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                                placeholder="••••••••">
+                            <p id="passwordErrorMsg" class="hidden text-xs text-red-500 mt-2 font-bold text-center"></p>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button onclick="closePasswordPrompt()"
+                                class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                Cancelar
+                            </button>
+                            <button onclick="confirmPassword()"
+                                class="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-blue-600 transition-colors">
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="invitationModal"
+                    class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center transition-opacity duration-300">
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[80vh] flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 bg-purple-500/10 rounded-lg text-purple-500">
+                                    <span class="material-symbols-outlined text-xl">person_add</span>
+                                </div>
+                                <h3 class="text-lg font-bold text-[#111418] dark:text-white">Gestionar Invitaciones</h3>
+                            </div>
+                            <button onclick="closeInvitationModal()"
+                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <div class="mb-6 space-y-3">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide">Invitar
+                                Usuario</label>
+                            <div class="flex gap-2">
+                                <input type="email" id="inviteEmail" placeholder="correo@ejemplo.com"
+                                    class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-sm focus:ring-2 focus:ring-purple-500/50 outline-none transition-all dark:text-white">
+                                <button onclick="sendInvitation()"
+                                    class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm shadow-lg shadow-purple-500/20 transition-all flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-lg">send</span>
+                                    Invitar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto min-h-[150px]">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Usuarios
+                                Invitados</label>
+                            <div id="invitationsList" class="space-y-2">
+                                <!-- Lista dinámica -->
+                                <div class="text-center py-8 text-gray-400 text-sm">Cargando...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-lg group relative overflow-hidden">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="p-3 bg-blue-500/10 rounded-xl text-blue-500">
+                                <span class="material-symbols-outlined text-2xl">grid_view</span>
+                            </div>
+                            <span
+                                class="text-[10px] font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded-md">+Active</span>
+                        </div>
+                        <div id="statTotalSystems" class="text-3xl font-bold text-[#111418] dark:text-white mb-1">0
+                        </div>
+                        <h4 class="text-gray-500 dark:text-gray-400 text-xs font-medium">Sistemas Totales</h4>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-lg group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="p-3 bg-purple-500/10 rounded-xl text-purple-500">
+                                <span class="material-symbols-outlined text-2xl">group</span>
+                            </div>
+                        </div>
+                        <div id="statTotalUsers" class="text-3xl font-bold text-[#111418] dark:text-white mb-1">0</div>
+                        <h4 class="text-gray-500 dark:text-gray-400 text-xs font-medium">Usuarios Totales</h4>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-lg group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="p-3 bg-orange-500/10 rounded-xl text-orange-500">
+                                <span class="material-symbols-outlined text-2xl">list</span>
+                            </div>
+                        </div>
+                        <div id="statTotalRecords" class="text-3xl font-bold text-[#111418] dark:text-white mb-1">0
+                        </div>
+                        <h4 class="text-gray-500 dark:text-gray-400 text-xs font-medium">Registros Totales</h4>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl p-5 border border-gray-200 dark:border-gray-800 shadow-lg group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="p-3 bg-green-500/10 rounded-xl text-green-500">
+                                <span class="material-symbols-outlined text-2xl">security</span>
+                            </div>
+                        </div>
+                        <div id="statSecureSystems" class="text-3xl font-bold text-[#111418] dark:text-white mb-1">0
+                        </div>
+                        <h4 class="text-gray-500 dark:text-gray-400 text-xs font-medium">Sistemas Seguros</h4>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                    <div
+                        class="lg:col-span-2 bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg flex flex-col h-[400px] overflow-hidden">
+                        <div
+                            class="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-[#1a2634]">
+                            <h3 class="font-bold text-[#111418] dark:text-white text-base flex items-center gap-2">
+                                <span class="material-symbols-outlined text-blue-500">grid_view</span>
+                                Mis Sistemas
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <button onclick="loadSystems()"
+                                    class="p-1.5 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">
+                                    <span class="material-symbols-outlined text-[18px]">refresh</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-y-auto flex-1 p-0 custom-scrollbar">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="sticky top-0 bg-white dark:bg-[#151f2b] z-10">
+                                    <tr class="text-left border-b border-gray-200 dark:border-gray-800">
+                                        <th
+                                            class="py-3 px-5 text-[10px] font-extrabold uppercase tracking-wider text-gray-500 w-16">
+                                            Logo</th>
+                                        <th
+                                            class="py-3 px-5 text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                                            Nombre</th>
+                                        <th
+                                            class="py-3 px-5 text-[10px] font-extrabold uppercase tracking-wider text-gray-500 text-center">
+                                            Usuarios</th>
+                                        <th
+                                            class="py-3 px-5 text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                                            Creación</th>
+                                        <th
+                                            class="py-3 px-5 text-[10px] font-extrabold uppercase tracking-wider text-gray-500 text-right">
+                                            Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="systemsList" class="divide-y divide-gray-200 dark:divide-gray-800">
+                                </tbody>
+                            </table>
+
+                            <div id="emptyState"
+                                class="hidden flex flex-col items-center justify-center h-full p-8 text-center">
+                                <div
+                                    class="h-14 w-14 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+                                    <span class="material-symbols-outlined text-3xl text-gray-600">dns</span>
+                                </div>
+                                <h3 class="text-sm font-bold text-[#111418] dark:text-white mb-1">Sin sistemas aún</h3>
+                                <p class="text-xs text-gray-500 mb-3">Crea tu primer sistema para comenzar</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-4 h-full">
+                        <h3 class="font-bold text-[#111418] dark:text-white text-sm mb-1">Acciones Rápidas</h3>
+
+                        <button onclick="window.location.href='system_form.html'"
+                            class="flex-1 bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div
+                                class="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">add_box</span>
+                            </div>
+                            <div>
+                                <div class="text-blue-400 font-bold text-sm">Crear Nuevo Sistema</div>
+                                <div class="text-gray-500 text-xs">Configura una nueva base de datos</div>
+                            </div>
+                        </button>
+
+                        <button onclick="window.location.href='connections.html'"
+                            class="flex-1 bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div
+                                class="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">cable</span>
+                            </div>
+                            <div>
+                                <div class="text-purple-400 font-bold text-sm">Conexiones</div>
+                                <div class="text-gray-500 text-xs">Mover tablas entre sistemas</div>
+                            </div>
+                        </button>
+
+                        <button onclick="window.location.href='audit.html'"
+                            class="flex-1 bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-orange-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div
+                                class="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">history</span>
+                            </div>
+                            <div>
+                                <div class="text-orange-400 font-bold text-sm">Consultar Auditoría</div>
+                                <div class="text-gray-500 text-xs">Revisar logs de sistemas</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg p-5 flex flex-col items-center">
+                        <div class="w-full flex items-center gap-2 mb-4">
+                            <span class="material-symbols-outlined text-blue-400 text-lg">security</span>
+                            <h3 class="font-bold text-[#111418] dark:text-white text-sm">Seguridad</h3>
+                        </div>
+                        <div class="h-32 w-32 relative">
+                            <canvas id="securityChart"></canvas>
+                        </div>
+                        <div class="flex gap-4 mt-4">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                <span class="text-[10px] text-gray-400">Ninguna</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                <span class="text-[10px] text-gray-400">Segura</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg p-5 flex flex-col items-center">
+                        <div class="w-full flex items-center gap-2 mb-4">
+                            <span class="material-symbols-outlined text-blue-400 text-lg">domain</span>
+                            <h3 class="font-bold text-[#111418] dark:text-white text-sm">Uso del Plan</h3>
+                        </div>
+                        <div class="h-32 w-32 relative">
+                            <canvas id="planChart"></canvas>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <div class="text-[#111418] dark:text-white font-bold text-sm" id="statPlanName">Básico</div>
+                            <div class="text-gray-500 text-xs" id="statPlanUsage">0/0 Usados</div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg p-6 flex flex-col justify-center relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 opacity-10">
+                            <span class="material-symbols-outlined text-[100px] text-yellow-500">lightbulb</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="material-symbols-outlined text-yellow-500">lightbulb</span>
+                            <h3 class="font-bold text-[#111418] dark:text-white text-sm">Pro Tip</h3>
+                        </div>
+                        <p class="text-gray-400 text-xs leading-relaxed">
+                            Puedes usar el "Modo de Seguridad Individual" para asignar permisos específicos
+                            (Editor/Viewer) a cada usuario en tus sistemas.
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'js/auth.js' %}"></script>
+    <script src="{% static 'js/app.js' %}"></script>
+    <script src="{% static 'js/dashboard.js' %}"></script>
+
+
+</body>
+
+</html>

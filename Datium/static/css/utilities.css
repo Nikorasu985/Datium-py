@@ -1,0 +1,24 @@
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+* {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button, a, [onclick], [role="button"] {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+button:hover, a:hover, [onclick]:hover, [role="button"]:hover {
+    transform: translateY(-2px);
+}
+
+button:active, a:active, [onclick]:active, [role="button"]:active {
+    transform: translateY(0);
+    transition: transform 0.1s ease;
+}
+
+
+

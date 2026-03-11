@@ -1,0 +1,282 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="dark" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Datium - Conexiones</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <script>
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+
+<body
+    class="font-display bg-background-light dark:bg-background-dark text-[#111418] dark:text-gray-200 overflow-hidden">
+
+    <div class="flex h-screen w-full">
+
+        <aside
+            class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between flex-shrink-0 h-full">
+            <div>
+
+                <div class="p-4 flex justify-center items-center h-60">
+                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}"
+                        class="h-full w-auto object-contain block dark:hidden hover:scale-105 transition-transform duration-300 p-2"
+                        alt="Datium">
+                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}"
+                        class="h-full w-auto object-contain hidden dark:block hover:scale-105 transition-transform duration-300 p-2"
+                        alt="Datium">
+                </div>
+
+
+                <div class="px-6 mb-6">
+                    <button onclick="toggleTema()"
+                        class="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-600 dark:text-gray-400">
+                        <span class="material-symbols-outlined text-xl">dark_mode</span>
+                        <span>Modo Oscuro</span>
+                    </button>
+                </div>
+
+
+                <nav class="px-4 flex flex-col gap-2">
+                    <a href="dashboard.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">dns</span>
+                        dashboard
+                    </a>
+
+                    <a href="connections.html"
+                        class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
+                        <span class="material-symbols-outlined">cable</span>
+                        Conexiones
+                    </a>
+
+                    <a href="audit.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">history</span>
+                        Auditoría
+                    </a>
+                </nav>
+            </div>
+
+
+            <div
+                class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white/30 dark:bg-gray-900/30 backdrop-blur-md">
+
+                <a href="profile.html"
+                    class="flex items-center gap-3 mb-4 px-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors p-2 cursor-pointer group">
+                    <div id="userAvatarContainer"
+                        class="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-gray-800 overflow-hidden group-hover:ring-primary transition-all">
+                        <span id="userInitial">U</span>
+                        <img id="userAvatar" src="" class="h-full w-full object-cover hidden" alt="Avatar">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="userName"
+                            class="text-sm font-bold truncate text-[#111418] dark:text-white group-hover:text-primary transition-colors">
+                            Cargando...
+                        </p>
+                        <p id="userEmail" class="text-xs text-gray-500 truncate">...</p>
+                    </div>
+                </a>
+
+                <button onclick="logout()"
+                    class="flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-lg">logout</span>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <main
+            class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-6 w-full">
+
+            <!-- Mobile Header -->
+            <div class="flex items-center justify-between mb-6 md:hidden">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()"
+                        class="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
+                        <span class="material-symbols-outlined">menu</span>
+                    </button>
+                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-8 w-auto block dark:hidden" alt="Datium">
+                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-8 w-auto hidden dark:block" alt="Datium">
+                </div>
+            </div>
+
+            <div class="max-w-4xl mx-auto flex flex-col gap-6">
+
+
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start relative">
+
+                    <!-- Flecha indicadora central (solo visible en desktop) -->
+                    <div class="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                        <div
+                            class="h-12 w-12 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 animate-pulse">
+                            <span class="material-symbols-outlined text-white text-2xl">arrow_forward</span>
+                        </div>
+                    </div>
+
+                    <!-- ORIGEN -->
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-3xl p-6 border border-gray-200 dark:border-gray-800 shadow-xl flex flex-col gap-6 h-full relative group hover:border-blue-500/30 transition-all">
+                        <div
+                            class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-transparent opacity-50 rounded-t-3xl">
+                        </div>
+
+                        <div class="flex items-center gap-3 text-blue-500 mb-2">
+                            <div class="p-2 rounded-lg bg-blue-500/10">
+                                <span class="material-symbols-outlined">output</span>
+                            </div>
+                            <h3 class="font-bold text-lg">Origen</h3>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Sistema
+                                    Origen</label>
+                                <select id="sourceSystemSelect" onchange="loadSourceTables()"
+                                    class="w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-[#111418] dark:text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all">
+                                    <option value="">Seleccionar Sistema...</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Tablas
+                                    a Copiar</label>
+                                <div id="tableSelectContainer"
+                                    class="w-full h-48 overflow-y-auto px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 transition-all">
+                                    <p class="text-sm text-gray-400 p-2 text-center mt-10">Primero selecciona un
+                                        sistema...</p>
+                                </div>
+                            </div>
+
+                            <div id="tableInfo"
+                                class="hidden p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
+                                <div
+                                    class="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-sm font-bold mb-1">
+                                    <span class="material-symbols-outlined text-lg">info</span>
+                                    <span>Detalles</span>
+                                </div>
+                                <p id="tableRecordCount" class="text-xs text-gray-600 dark:text-gray-400">...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DESTINO -->
+                    <div
+                        class="bg-white dark:bg-[#151f2b] rounded-3xl p-6 border border-gray-200 dark:border-gray-800 shadow-xl flex flex-col gap-6 h-full relative group hover:border-primary/30 transition-all">
+                        <div
+                            class="absolute top-0 right-0 w-full h-1 bg-gradient-to-l from-primary to-transparent opacity-50 rounded-t-3xl">
+                        </div>
+
+                        <div class="flex items-center gap-3 text-primary mb-2">
+                            <div class="p-2 rounded-lg bg-primary/10">
+                                <span class="material-symbols-outlined">input</span>
+                            </div>
+                            <h3 class="font-bold text-lg">Destino</h3>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label
+                                    class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Sistema
+                                    Destino</label>
+                                <select id="targetSystemSelect"
+                                    class="w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50 outline-none transition-all">
+                                    <option value="">Seleccionar Sistema...</option>
+                                </select>
+                            </div>
+
+                            <div
+                                class="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 mt-4">
+                                <div
+                                    class="flex items-center gap-2 text-orange-600 dark:text-orange-400 text-sm font-bold mb-1">
+                                    <span class="material-symbols-outlined text-lg">warning</span>
+                                    <span>Advertencia</span>
+                                </div>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                                    Al copiar la tabla, <strong>se crearán copias independientes</strong>
+                                    en el sistema destino. Las relaciones con tablas externas pueden requerir ajuste
+                                    manual.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto pt-4">
+                            <button onclick="moveTable()" id="moveButton" disabled
+                                class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-blue-600 hover:from-blue-600 hover:to-primary text-white font-bold shadow-lg shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined">content_copy</span>
+                                Copiar Tablas
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/auth.js' %}"></script>
+    <script src="{% static 'js/app.js' %}"></script>
+    <script src="{% static 'js/connections.js' %}"></script>
+    <script>
+        async function loadUserInfo() {
+            const res = await apiFetch('/user/profile');
+            if (res && res.ok) {
+                const userProfile = await res.json();
+                const nameEl = document.getElementById('userName');
+                const emailEl = document.getElementById('userEmail');
+                const initialEl = document.getElementById('userInitial');
+                const avatarEl = document.getElementById('userAvatar');
+
+                if (nameEl) nameEl.innerText = userProfile.name || 'Usuario';
+                if (emailEl) emailEl.innerText = userProfile.email || '...';
+
+                if (userProfile.avatarUrl) {
+                    avatarEl.src = userProfile.avatarUrl;
+                    avatarEl.classList.remove('hidden');
+                    if (initialEl) initialEl.classList.add('hidden');
+                } else if (initialEl) {
+                    initialEl.innerText = (userProfile.name || 'U').charAt(0).toUpperCase();
+                }
+            }
+        }
+        loadUserInfo();
+    </script>
+</body>
+
+</html>
