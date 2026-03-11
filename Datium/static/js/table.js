@@ -209,24 +209,11 @@ async function saveRecord() {
         //     loadData();
         // });
 
-        const action = editingRecordId ? 'Actualizado' : 'Guardado';
-        showSuccessModal(
-            `¡Registro ${action}!`,
-            'Los datos se han guardado correctamente en la tabla.',
-            [
-                {
-                    text: 'Aceptar',
-                    primary: true,
-                    onClick: () => {
-                        const modal = document.getElementById('success-modal');
-                        modal.classList.add('opacity-0');
-                        setTimeout(() => modal.remove(), 300);
-                        closeRegisterModal();
-                        loadData();
-                    }
-                }
-            ]
-        );
+        const action = editingRecordId ? 'actualizado' : 'guardado';
+        showSuccess(`¡Registro ${action} correctamente!`, () => {
+            closeRegisterModal();
+            loadData();
+        });
     } else {
         try {
             const errorData = await res.json();

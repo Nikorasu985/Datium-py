@@ -1,0 +1,42 @@
+ERROR IN DECORATOR:
+Traceback (most recent call last):
+  File "C:\Users\Nico9\OneDrive\Escritorio\Datium-py\Datium\chatbot\views.py", line 38, in decorated
+    return f(request, *args, **kwargs)
+           ^
+UnboundLocalError: cannot access local variable 'f' where it is not associated with a value
+
+ERROR IN DECORATOR:
+Traceback (most recent call last):
+  File "C:\Users\Nico9\OneDrive\Escritorio\Datium-py\Datium\chatbot\views.py", line 38, in decorated
+    return f(request, *args, **kwargs)
+           ^
+UnboundLocalError: cannot access local variable 'f' where it is not associated with a value
+
+ERROR IN DECORATOR:
+Traceback (most recent call last):
+  File "C:\Users\Nico9\OneDrive\Escritorio\Datium-py\Datium\chatbot\views.py", line 38, in decorated
+    return f(request, *args, **kwargs)
+           ^
+UnboundLocalError: cannot access local variable 'f' where it is not associated with a value
+
+ERROR IN DECORATOR:
+Traceback (most recent call last):
+  File "C:\Users\Nico9\OneDrive\Escritorio\Datium-py\Datium\chatbot\views.py", line 38, in decorated
+    return f(request, *args, **kwargs)
+           ^
+UnboundLocalError: cannot access local variable 'f' where it is not associated with a value
+
+ERROR IN DECORATOR:
+Traceback (most recent call last):
+  File "C:\Users\Nico9\OneDrive\Escritorio\Datium-py\Datium\chatbot\views.py", line 38, in decorated
+    return f(request, *args, **kwargs)
+           ^
+UnboundLocalError: cannot access local variable 'f' where it is not associated with a value
+
+ERROR IN DECORATOR:
+Traceback (most recent call last):
+  File "C:\Users\Nico9\OneDrive\Escritorio\Datium-py\Datium\chatbot\views.py", line 38, in decorated
+    return f(request, *args, **kwargs)
+           ^
+UnboundLocalError: cannot access local variable 'f' where it is not associated with a value
+

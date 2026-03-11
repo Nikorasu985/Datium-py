@@ -14,6 +14,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <script>
         const theme = localStorage.getItem('theme');
@@ -74,19 +75,29 @@
                     <a href="dashboard.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">dns</span>
-                        dashboard
+                        Dashboard
                     </a>
 
                     <a href="connections.html"
                         class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
                         <span class="material-symbols-outlined">cable</span>
                         Conexiones
+                    </a>                    <a href="stats.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">bar_chart</span>
+                        Estadísticas
                     </a>
+
 
                     <a href="audit.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">history</span>
                         Auditoría
+                    </a>
+                    <a href="chat.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-sm font-medium transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
+                        <span class="material-symbols-outlined">forum</span>
+                        Asistente IA
                     </a>
                 </nav>
             </div>
@@ -129,121 +140,165 @@
                         class="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
                         <span class="material-symbols-outlined">menu</span>
                     </button>
-                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-8 w-auto block dark:hidden" alt="Datium">
-                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-8 w-auto hidden dark:block" alt="Datium">
+                    <span class="font-bold text-lg text-[#111418] dark:text-white">Conexiones</span>
                 </div>
             </div>
 
-            <div class="max-w-4xl mx-auto flex flex-col gap-6">
+            <div class="max-w-6xl mx-auto flex flex-col gap-6 h-[calc(100vh-100px)]">
 
+                <!-- Header Title -->
+                <div
+                    class="bg-white dark:bg-[#151f2b] p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col md:flex-row gap-4 justify-between items-center z-10 w-full shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-primary/10 rounded-xl">
+                            <span class="material-symbols-outlined text-primary text-2xl">cable</span>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-black text-[#111418] dark:text-white">Conexiones</h1>
+                            <p class="text-xs text-gray-500">Administra las conexiones de tus datos</p>
+                        </div>
+                    </div>
+                </div>
 
+                <!-- Header Controls -->
+                <div
+                    class="bg-white dark:bg-[#151f2b] p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col md:flex-row gap-4 justify-between items-center z-10 w-full shrink-0">
+                    <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-1 max-w-2xl">
+                        <!-- System Selector -->
+                        <div class="relative w-full sm:w-1/2">
+                            <span
+                                class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400">dns</span>
+                            <select id="viewerSystemSelect"
+                                class="w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-sm font-bold text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50 outline-none transition-all appearance-none cursor-pointer">
+                                <option value="" disabled selected>Selecciona Sistema...</option>
+                            </select>
+                        </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start relative">
-
-                    <!-- Flecha indicadora central (solo visible en desktop) -->
-                    <div class="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <div
-                            class="h-12 w-12 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 animate-pulse">
-                            <span class="material-symbols-outlined text-white text-2xl">arrow_forward</span>
+                        <!-- Table Selector -->
+                        <div class="relative w-full sm:w-1/2">
+                            <span
+                                class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400">table_chart</span>
+                            <select id="viewerTableSelect" disabled
+                                class="w-full pl-10 pr-4 py-2.5 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-sm font-bold text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50 outline-none transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                                <option value="" disabled selected>Selecciona Tabla...</option>
+                            </select>
                         </div>
                     </div>
 
-                    <!-- ORIGEN -->
-                    <div
-                        class="bg-white dark:bg-[#151f2b] rounded-3xl p-6 border border-gray-200 dark:border-gray-800 shadow-xl flex flex-col gap-6 h-full relative group hover:border-blue-500/30 transition-all">
-                        <div
-                            class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-transparent opacity-50 rounded-t-3xl">
-                        </div>
-
-                        <div class="flex items-center gap-3 text-blue-500 mb-2">
-                            <div class="p-2 rounded-lg bg-blue-500/10">
-                                <span class="material-symbols-outlined">output</span>
-                            </div>
-                            <h3 class="font-bold text-lg">Origen</h3>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div>
-                                <label
-                                    class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Sistema
-                                    Origen</label>
-                                <select id="sourceSystemSelect" onchange="loadSourceTables()"
-                                    class="w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-[#111418] dark:text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all">
-                                    <option value="">Seleccionar Sistema...</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Tablas
-                                    a Copiar</label>
-                                <div id="tableSelectContainer"
-                                    class="w-full h-48 overflow-y-auto px-2 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 transition-all">
-                                    <p class="text-sm text-gray-400 p-2 text-center mt-10">Primero selecciona un
-                                        sistema...</p>
-                                </div>
-                            </div>
-
-                            <div id="tableInfo"
-                                class="hidden p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
-                                <div
-                                    class="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-sm font-bold mb-1">
-                                    <span class="material-symbols-outlined text-lg">info</span>
-                                    <span>Detalles</span>
-                                </div>
-                                <p id="tableRecordCount" class="text-xs text-gray-600 dark:text-gray-400">...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- DESTINO -->
-                    <div
-                        class="bg-white dark:bg-[#151f2b] rounded-3xl p-6 border border-gray-200 dark:border-gray-800 shadow-xl flex flex-col gap-6 h-full relative group hover:border-primary/30 transition-all">
-                        <div
-                            class="absolute top-0 right-0 w-full h-1 bg-gradient-to-l from-primary to-transparent opacity-50 rounded-t-3xl">
-                        </div>
-
-                        <div class="flex items-center gap-3 text-primary mb-2">
-                            <div class="p-2 rounded-lg bg-primary/10">
-                                <span class="material-symbols-outlined">input</span>
-                            </div>
-                            <h3 class="font-bold text-lg">Destino</h3>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div>
-                                <label
-                                    class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Sistema
-                                    Destino</label>
-                                <select id="targetSystemSelect"
-                                    class="w-full px-4 py-3 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50 outline-none transition-all">
-                                    <option value="">Seleccionar Sistema...</option>
-                                </select>
-                            </div>
-
-                            <div
-                                class="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/30 mt-4">
-                                <div
-                                    class="flex items-center gap-2 text-orange-600 dark:text-orange-400 text-sm font-bold mb-1">
-                                    <span class="material-symbols-outlined text-lg">warning</span>
-                                    <span>Advertencia</span>
-                                </div>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                                    Al copiar la tabla, <strong>se crearán copias independientes</strong>
-                                    en el sistema destino. Las relaciones con tablas externas pueden requerir ajuste
-                                    manual.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="mt-auto pt-4">
-                            <button onclick="moveTable()" id="moveButton" disabled
-                                class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-blue-600 hover:from-blue-600 hover:to-primary text-white font-bold shadow-lg shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                <span class="material-symbols-outlined">content_copy</span>
-                                Copiar Tablas
+                    <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end shrink-0">
+                        <!-- View Toggles -->
+                        <div class="flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+                            <button id="btnViewList"
+                                class="p-1.5 rounded-lg bg-white dark:bg-gray-700 shadow-sm text-primary transition-all"
+                                title="Vista de Lista">
+                                <span class="material-symbols-outlined">view_list</span>
+                            </button>
+                            <button id="btnViewGrid"
+                                class="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-primary transition-all"
+                                title="Vista de Cuadrícula">
+                                <span class="material-symbols-outlined">grid_view</span>
                             </button>
                         </div>
+
+                        <a href="table_form.html"
+                            class="px-4 py-2.5 bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">add_box</span>
+                            Crear Tabla
+                        </a>
+
+                        <div class="relative">
+                            <select id="diagramTypeSelect" 
+                                class="pl-4 pr-10 py-2.5 rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-black uppercase text-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all appearance-none cursor-pointer shadow-sm">
+                                <option value="er">Diagrama ER</option>
+                                <option value="flow">Flujo de Datos</option>
+                                <option value="class">Clases</option>
+                            </select>
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 pointer-events-none text-sm">schema</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Display Area: Redesigned for Diagram Dominance -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
+                    
+                    <!-- Left (Small): Table/Records Preview -->
+                    <div id="dataViewerContainer"
+                        class="lg:col-span-4 bg-white dark:bg-[#151f2b] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden relative flex flex-col group transition-all hover:shadow-2xl">
+                        
+                        <div class="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest text-[#111418] dark:text-white flex items-center gap-2 opacity-60">
+                                <span class="material-symbols-outlined text-sm">table_rows</span>
+                                Vista Previa de Datos
+                            </h3>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="dataEmptyState"
+                            class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-white dark:bg-[#1a2634] z-20 transition-opacity duration-300">
+                            <span class="material-symbols-outlined text-3xl text-gray-300 dark:text-gray-600 mb-2">table_chart</span>
+                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Sin datos</p>
+                        </div>
+
+                        <!-- Loader -->
+                        <div id="dataLoaderState"
+                            class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 dark:bg-[#1a2634]/90 z-10 transition-opacity duration-300 opacity-0 pointer-events-none backdrop-blur-sm">
+                            <div class="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full opacity-50"></div>
+                        </div>
+
+                        <!-- Content Area (Scrollable small list) -->
+                        <div id="dataContent"
+                            class="flex-1 overflow-y-auto p-3 custom-scrollbar bg-gray-50/30 dark:bg-transparent text-[11px]">
+                            <!-- Dynamically populated with a simplified list -->
+                        </div>
                     </div>
 
+                    <!-- Right (Dominant): Diagram Viewer -->
+                    <div id="diagramSidebar" class="lg:col-span-8 bg-white dark:bg-[#151f2b] rounded-[2.5rem] border-2 border-primary/5 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden relative group">
+                        <!-- Simplified Controls for "Common People" -->
+                        <div class="absolute top-6 right-6 z-30 flex items-center gap-2 p-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-gray-100 dark:border-gray-700 shadow-2xl opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                            <button id="btnZoomIn" class="p-2.5 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90" title="Acercar">
+                                <span class="material-symbols-outlined text-xl">zoom_in</span>
+                            </button>
+                            <div class="w-px h-6 bg-gray-100 dark:bg-gray-700"></div>
+                            <button id="btnZoomOut" class="p-2.5 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90" title="Alejar">
+                                <span class="material-symbols-outlined text-xl">zoom_out</span>
+                            </button>
+                            <div class="w-px h-6 bg-gray-100 dark:bg-gray-700"></div>
+                            <button id="btnEditDiagram" class="p-2.5 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90" title="Editar representación">
+                                <span class="material-symbols-outlined text-xl">edit_note</span>
+                            </button>
+                        </div>
+
+                        <div id="diagramEditor" class="hidden absolute left-0 right-0 top-0 h-1/3 z-40 p-4 animate-fade-in-down">
+                            <textarea id="mermaidCode" class="w-full h-full bg-gray-900/95 backdrop-blur-3xl text-emerald-400 font-mono text-[11px] p-6 rounded-[2rem] border border-emerald-500/20 shadow-2xl outline-none resize-none" placeholder="Escribe aquí el código del diagrama..."></textarea>
+                        </div>
+
+                        <div id="diagramContent" class="flex-1 overflow-hidden p-8 flex items-center justify-center bg-white dark:bg-[#0c1218] relative">
+                            <div id="diagramContainerWrapper" class="transition-transform duration-500 ease-out origin-center cursor-grab active:cursor-grabbing">
+                                <div class="text-center">
+                                    <div class="w-20 h-20 bg-gray-50 dark:bg-gray-800/20 rounded-full flex items-center justify-center mx-auto mb-4 opacity-10">
+                                        <span class="material-symbols-outlined text-5xl">schema</span>
+                                    </div>
+                                    <p class="text-xs font-black uppercase tracking-widest text-gray-300 dark:text-gray-700">Visualización de Sistema</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Legend/Context for non-tech users -->
+                        <div class="p-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-transparent flex justify-between items-center shrink-0">
+                            <div class="flex items-center gap-6">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-primary/40 ring-4 ring-primary/5"></div>
+                                    <span class="text-[10px] font-black uppercase tracking-tight opacity-60">Entidades</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-amber-400/40 ring-4 ring-amber-400/5"></div>
+                                    <span class="text-[10px] font-black uppercase tracking-tight opacity-60">Relaciones</span>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-bold text-gray-400 italic">Interactivo: Arrastra y haz zoom para explorar</span>
+                        </div>
+                    </div>
                 </div>
 
             </div>

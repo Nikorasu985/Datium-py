@@ -74,19 +74,29 @@
                     <a href="dashboard.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">dns</span>
-                        dashboard
+                        Dashboard
                     </a>
 
                     <a href="connections.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">cable</span>
                         Conexiones
+                    </a>                    <a href="stats.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">bar_chart</span>
+                        Estadísticas
                     </a>
+
 
                     <a href="audit.html"
                         class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
                         <span class="material-symbols-outlined">history</span>
                         Auditoría
+                    </a>
+                    <a href="chat.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-sm font-medium transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
+                        <span class="material-symbols-outlined">forum</span>
+                        Asistente IA
                     </a>
                 </nav>
             </div>
@@ -129,8 +139,7 @@
                         class="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
                         <span class="material-symbols-outlined">menu</span>
                     </button>
-                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-8 w-auto block dark:hidden" alt="Datium">
-                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-8 w-auto hidden dark:block" alt="Datium">
+                    <span class="font-bold text-lg text-[#111418] dark:text-white">Auditoría</span>
                 </div>
             </div>
 
@@ -139,11 +148,18 @@
 
 
                 <!-- Filters -->
-                <!-- Filters -->
+                <!-- Header Controls -->
                 <div
-                    class="bg-white dark:bg-[#151f2b] rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col gap-4">
-
-                    <!-- Row 1: Options -->
+                    class="bg-white dark:bg-[#151f2b] p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col md:flex-row gap-4 justify-between items-center z-10 w-full shrink-0">
+                    <div class="flex items-center gap-3 text-left w-full sm:w-auto">
+                        <div class="p-2 bg-primary/10 rounded-xl flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-2xl">history</span>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-black text-[#111418] dark:text-white">Auditoría</h1>
+                            <p class="text-xs text-gray-500">Seguimiento de actividad del sistema</p>
+                        </div>
+                    </div>
                     <div class="flex flex-col md:flex-row flex-wrap gap-4 items-end">
                         <div class="flex-1 min-w-[200px]">
                             <label
@@ -213,9 +229,14 @@
                     class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col">
                     <div id="logsContainer" class="divide-y divide-gray-100 dark:divide-gray-800">
                         <!-- Logs will be injected here -->
-                        <div class="p-8 text-center text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
-                            <span class="material-symbols-outlined text-4xl opacity-50">search</span>
-                            <p>Selecciona un sistema para ver los registros.</p>
+                        <div class="p-12 text-center text-gray-500 dark:text-gray-400 flex flex-col items-center gap-4 animate-fade-in">
+                            <div class="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center ring-1 ring-primary/20">
+                                <span class="material-symbols-outlined text-4xl text-primary opacity-80">search_check</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-[#111418] dark:text-white mb-1">Centro de Auditoría</h3>
+                                <p class="text-sm max-w-xs">Selecciona un sistema para comenzar a auditar las acciones realizadas por los usuarios.</p>
+                            </div>
                         </div>
                     </div>
                 </div>

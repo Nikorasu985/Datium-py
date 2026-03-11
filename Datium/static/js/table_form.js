@@ -28,6 +28,83 @@ async function init() {
     }
 
     loadSidebarInfo();
+    setupLivePreview();
+}
+
+function setupLivePreview() {
+    const container = document.getElementById('newFieldsContainer');
+    container.addEventListener('input', updatePreview);
+    container.addEventListener('change', updatePreview);
+
+    // Create an observer to watch for nodes added or removed
+    const observer = new MutationObserver((mutations) => {
+        updatePreview();
+    });
+    observer.observe(container, { childList: true });
+}
+
+function updatePreview() {
+    const fieldRows = document.getElementById('newFieldsContainer').children;
+    const fields = Array.from(fieldRows).map(row => {
+        const nameInput = row.querySelector('.new-field-name');
+        if (!nameInput) return null;
+        const name = nameInput.value.trim();
+        const type = row.querySelector('.new-field-type').value;
+        return { name: name || 'Nueva Columna', type: type };
+    }).filter(f => f);
+
+    const thead = document.getElementById('previewTableHead');
+    const tbody = document.getElementById('previewTableBody');
+    if (!thead || !tbody) return;
+
+    let thHtml = `<th class="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 dark:bg-gray-800/80 z-10 min-w-[60px]">ID</th>`;
+    fields.forEach(f => {
+        let icon = 'text_fields';
+        if (f.type === 'number') icon = 'tag';
+        if (f.type === 'date') icon = 'calendar_today';
+        if (f.type === 'boolean') icon = 'check_box';
+        if (f.type === 'select') icon = 'list';
+        if (f.type === 'relation') icon = 'link';
+
+        thHtml += `
+            <th class="px-6 py-3 font-medium text-gray-600 dark:text-gray-300 group min-w-[150px]">
+                <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[14px] text-gray-400 group-hover:text-primary transition-colors">${icon}</span>
+                    <span class="text-sm">${f.name}</span>
+                </div>
+            </th>
+        `;
+    });
+    thHtml += `<th class="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[100px]">Acciones</th>`;
+    thead.innerHTML = thHtml;
+
+    let trHtml = '';
+    // Show 2 mock rows
+    for (let i = 1; i <= 2; i++) {
+        trHtml += `<tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">`;
+        trHtml += `<td class="px-6 py-3.5 text-sm font-medium text-gray-500 sticky left-0 bg-white dark:bg-gray-900/50 z-10 w-auto border-r border-gray-100 dark:border-gray-800/50">#${i}</td>`;
+
+        fields.forEach(f => {
+            let mockVal = 'Datos...';
+            if (f.type === 'number') mockVal = i * 142;
+            if (f.type === 'date') mockVal = `1${i}/03/2026`;
+            if (f.type === 'boolean') mockVal = i === 1 ? 'Sí' : 'No';
+            if (f.type === 'select') mockVal = 'Opción A';
+            if (f.type === 'relation') mockVal = 'Rel_#0' + i;
+
+            trHtml += `<td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400 opacity-60">${mockVal}</td>`;
+        });
+
+        trHtml += `
+            <td class="px-6 py-3.5">
+                <div class="flex gap-2 opacity-50">
+                    <div class="w-6 h-6 rounded bg-gray-200 dark:bg-gray-800"></div>
+                    <div class="w-6 h-6 rounded bg-gray-200 dark:bg-gray-800"></div>
+                </div>
+            </td>
+        </tr>`;
+    }
+    tbody.innerHTML = trHtml;
 }
 
 function goBack() {
@@ -248,26 +325,9 @@ async function saveTable() {
         });
 
         if (res.ok) {
-            showSuccessModal(
-                '¡Tabla Actualizada!',
-                'La estructura de la tabla ha sido modificada correctamente.',
-                [
-                    {
-                        text: 'Volver al Sistema',
-                        primary: true,
-                        onClick: () => window.location.href = `system.html?id=${systemId}`
-                    },
-                    {
-                        text: 'Seguir Editando',
-                        primary: false,
-                        onClick: () => {
-                            const modal = document.getElementById('success-modal');
-                            modal.classList.add('opacity-0');
-                            setTimeout(() => modal.remove(), 300);
-                        }
-                    }
-                ]
-            );
+            showSuccess('¡La estructura de la tabla ha sido modificada correctamente!', () => {
+                window.location.href = `system.html?id=${systemId}`;
+            });
         } else {
             btn.innerHTML = originalBtnContent;
             btn.disabled = false;
@@ -286,22 +346,9 @@ async function saveTable() {
 
         if (res.ok) {
             const savedTable = await res.json();
-            showSuccessModal(
-                '¡Tabla Exitos!',
-                'La tabla se ha creado correctamente. Ahora puedes definir sus campos o volver al sistema.',
-                [
-                    {
-                        text: 'Volver al Sistema',
-                        primary: true,
-                        onClick: () => window.location.href = `system.html?id=${systemId}`
-                    },
-                    {
-                        text: 'Editar esta Tabla',
-                        primary: false,
-                        onClick: () => window.location.href = `table_form.html?systemId=${systemId}&tableId=${savedTable.id}`
-                    }
-                ]
-            );
+            showSuccess('¡La tabla se ha creado correctamente!', () => {
+                window.location.href = `system.html?id=${systemId}`;
+            });
         } else {
             btn.innerHTML = originalBtnContent;
             btn.disabled = false;

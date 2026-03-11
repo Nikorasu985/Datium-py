@@ -90,21 +90,31 @@
 
                 <nav class="px-4 flex flex-col gap-2">
                     <a href="dashboard.html"
-                        class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">dns</span>
-                        dashboard
+                        Dashboard
                     </a>
 
                     <a href="connections.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">cable</span>
                         Conexiones
+                    </a>                    <a href="stats.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">bar_chart</span>
+                        Estadísticas
                     </a>
+
 
                     <a href="audit.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">history</span>
                         Auditoría
+                    </a>
+                    <a href="chat.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-sm font-medium transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
+                        <span class="material-symbols-outlined">forum</span>
+                        Asistente IA
                     </a>
                 </nav>
             </div>
@@ -147,12 +157,23 @@
                         class="p-2 rounded-xl bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
                         <span class="material-symbols-outlined">menu</span>
                     </button>
-                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-8 w-auto block dark:hidden" alt="Datium">
-                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-8 w-auto hidden dark:block" alt="Datium">
+                    <span class="font-bold text-lg text-[#111418] dark:text-white">Sistemas</span>
                 </div>
             </div>
 
-            <div class="max-w-7xl mx-auto space-y-6">
+            <div class="max-w-7xl mx-auto space-y-6 relative z-10 w-full">
+                <!-- Header Title -->
+                <div class="bg-white dark:bg-[#151f2b] p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col md:flex-row gap-4 justify-between items-center z-10 w-full shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-primary/10 rounded-xl">
+                            <span class="material-symbols-outlined text-primary text-2xl">dns</span>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-black text-[#111418] dark:text-white">Detalle del Sistema</h1>
+                            <p class="text-xs text-gray-500">Administra las tablas y configuraciones de este sistema</p>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="flex justify-between items-center">
                     <a href="dashboard.html"

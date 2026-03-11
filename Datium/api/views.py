@@ -713,6 +713,13 @@ def upload_image_view(request):
     if not file:
         return Response({'error': 'No se proporcionó archivo'}, status=400)
 
+    limit_bytes = user.plan.max_storage_mb * 1024 * 1024 if user.plan else 1024 * 1024 * 1024
+    if user.storage_used_bytes + file.size > limit_bytes:
+        return Response({'error': 'Has excedido el límite de almacenamiento de tu plan.'}, status=403)
+
+    user.storage_used_bytes += file.size
+    user.save()
+
     upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
     os.makedirs(upload_dir, exist_ok=True)
 

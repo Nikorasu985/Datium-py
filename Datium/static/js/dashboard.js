@@ -297,9 +297,13 @@ async function loadStatistics() {
 
             if (planNameEl) planNameEl.innerText = usage.planName || 'Básico';
             if (planUsageEl) {
-                planUsageEl.innerText = usage.max === -1
-                    ? `${usage.current} / ∞ Usados`
-                    : `${usage.current} / ${usage.max} Usados`;
+                if (usage.planName === 'Empresarial') {
+                    planUsageEl.innerText = `${usage.current} / Ilimitado`;
+                } else {
+                    planUsageEl.innerText = usage.max === -1
+                        ? `${usage.current} / ∞ Usados`
+                        : `${usage.current} / ${usage.max} Usados`;
+                }
             }
 
             renderPlanChart(usage);
@@ -623,6 +627,49 @@ async function revokeInvitation(systemId, shareId) {
             }
         });
     });
+}
+
+function startDashboardVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        showError('Tu navegador no soporta reconocimiento de voz.');
+        return;
+    }
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    const btn = document.getElementById('dashboardVoiceBtn');
+    const originalContent = btn.innerHTML;
+    
+    btn.innerHTML = `
+        <span class="material-symbols-outlined animate-pulse text-red-500">mic</span>
+        <span class="text-xs font-bold text-red-500">Escuchando...</span>
+    `;
+
+    recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        const searchInput = document.getElementById('tableSearchInput');
+        if (searchInput) {
+            searchInput.value = text;
+            searchInput.dispatchEvent(new Event('input'));
+            showSuccess(`Buscando: "${text}"`);
+        } else {
+            showSuccess(`Dijiste: "${text}"`);
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        showError('Error al reconocer voz: ' + event.error);
+    };
+
+    recognition.onend = () => {
+        btn.innerHTML = originalContent;
+    };
+
+    recognition.start();
 }
 
 init();

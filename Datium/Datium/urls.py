@@ -23,6 +23,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+    path('chatbot/', include('chatbot.urls')),
     
     # Frontend Routes
     path('', TemplateView.as_view(template_name='index.html'), name='home'),
@@ -34,9 +35,11 @@ urlpatterns = [
     path('system.html', TemplateView.as_view(template_name='system.html')),
     path('system_form.html', TemplateView.as_view(template_name='system_form.html')),
     path('table.html', TemplateView.as_view(template_name='table.html')),
-    path('table_form.html', TemplateView.as_view(template_name='table_form.html')),
+    path('table_form.html', TemplateView.as_view(template_name='table_form.html'), name='table_form'),
+    path('chat.html', TemplateView.as_view(template_name='chat.html'), name='chat'), # Added chat.html route
     path('connections.html', TemplateView.as_view(template_name='connections.html')),
     path('audit.html', TemplateView.as_view(template_name='audit.html')),
+    path('stats.html', TemplateView.as_view(template_name='stats.html')),
 ]
 
 if settings.DEBUG:

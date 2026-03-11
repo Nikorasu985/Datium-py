@@ -66,7 +66,7 @@
     <div class="flex h-screen w-full">
 
         <aside
-            class="w-64 h-full bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between flex-shrink-0 z-50 transition-all duration-300">
+            class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between flex-shrink-0 h-full">
             <div>
 
                 <div class="p-4 flex justify-center items-center h-60">
@@ -90,21 +90,31 @@
 
                 <nav class="px-4 flex flex-col gap-2">
                     <a href="dashboard.html"
-                        class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">dns</span>
-                        dashboard
+                        Dashboard
                     </a>
 
-                    <a href="#"
+                    <a href="connections.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">cable</span>
                         Conexiones
+                    </a>                    <a href="stats.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">bar_chart</span>
+                        Estadísticas
                     </a>
 
-                    <a href="#"
+
+                    <a href="audit.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">history</span>
                         Auditoría
+                    </a>
+                    <a href="chat.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-sm font-medium transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
+                        <span class="material-symbols-outlined">forum</span>
+                        Asistente IA
                     </a>
                 </nav>
             </div>
@@ -188,6 +198,35 @@
                         </div>
 
                         <div id="newFieldsContainer" class="space-y-3"></div>
+
+                        <!-- LIVE PREVIEW SECTION -->
+                        <div class="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
+                            <h4 class="text-sm font-bold text-gray-600 dark:text-gray-300 flex items-center gap-2 mb-4">
+                                <span class="material-symbols-outlined text-base text-primary">visibility</span>
+                                Vista Previa de la Tabla
+                            </h4>
+                            <div
+                                class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 custom-scrollbar">
+                                <table class="w-full text-left border-collapse whitespace-nowrap">
+                                    <thead class="bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md">
+                                        <tr id="previewTableHead">
+                                            <th
+                                                class="px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50/80 dark:bg-gray-800/80 z-10">
+                                                ID</th>
+                                            <!-- Dynamically filled headers -->
+                                        </tr>
+                                    </thead>
+                                    <tbody id="previewTableBody"
+                                        class="bg-white dark:bg-gray-900/50 divide-y divide-gray-100 dark:divide-gray-800">
+                                        <!-- Dynamically filled rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">info</span>
+                                Esta vista interactiva se actualiza en tiempo real mientras configuras las columnas.
+                            </p>
+                        </div>
 
                         <div class="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800/50">
                             <button type="button" onclick="goBack()"

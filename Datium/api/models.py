@@ -11,6 +11,7 @@ class Plan(models.Model):
     max_tables_per_system = models.IntegerField(default=3)
     max_records_per_table = models.IntegerField(default=50000)
     max_fields_per_table = models.IntegerField(default=200)
+    max_storage_mb = models.IntegerField(default=1024)
 
     def __str__(self):
         return self.name
@@ -26,6 +27,7 @@ class User(models.Model):
     password_hash = models.TextField()
     avatar_url = models.TextField(null=True, blank=True)
     plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True)
+    storage_used_bytes = models.BigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

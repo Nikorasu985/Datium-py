@@ -1,242 +1,419 @@
 checkAuth();
 
-let allSystems = [];
+// Elements
+const domSysSelect = document.getElementById('viewerSystemSelect');
+const domTabSelect = document.getElementById('viewerTableSelect');
+const domBtnList = document.getElementById('btnViewList');
+const domBtnGrid = document.getElementById('btnViewGrid');
+const domEmptyState = document.getElementById('dataEmptyState');
+const domLoader = document.getElementById('dataLoaderState');
+const domListHeader = document.getElementById('dataListHeader');
+const domContent = document.getElementById('dataContent');
+const domCreateBtn = document.querySelector('a[href="table_form.html"]');
+const domDiagramType = document.getElementById('diagramTypeSelect');
+
+// State
+let viewMode = 'list';
+let currentSystemId = null;
+let currentTableId = null;
+let currentFields = [];
+let currentRecords = [];
+let currentTables = [];
+let currentDiagramType = 'er';
+let currentDiagramCode = '';
+let zoomLevel = 1;
+const relationCache = {};
 
 async function init() {
-    await loadSystems();
+    const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'default';
+    mermaid.initialize({ startOnLoad: false, theme: theme === 'dark' ? 'dark' : 'default', securityLevel: 'loose' });
+    
+    await fetchSystems();
+    setupEventListeners();
+    loadSidebarInfo();
 }
 
-async function loadSystems() {
-    showLoading('Cargando sistemas...');
+function setupEventListeners() {
+    if (domSysSelect) {
+        domSysSelect.addEventListener('change', async (e) => {
+            currentSystemId = e.target.value;
+            if (currentSystemId) {
+                if (domCreateBtn) domCreateBtn.href = `table_form.html?systemId=${currentSystemId}`;
+                await fetchTables(currentSystemId);
+                renderDiagram();
+            } else {
+                domTabSelect.innerHTML = '<option value="" disabled selected>Selecciona Tabla...</option>';
+                domTabSelect.disabled = true;
+                showEmptyState();
+                clearDiagram();
+            }
+        });
+    }
+
+    if (domTabSelect) {
+        domTabSelect.addEventListener('change', async (e) => {
+            currentTableId = e.target.value;
+            if (currentTableId) {
+                await loadTableData(currentTableId);
+            } else {
+                showEmptyState();
+            }
+        });
+    }
+
+    if (domDiagramType) {
+        domDiagramType.addEventListener('change', (e) => {
+            currentDiagramType = e.target.value;
+            renderDiagram();
+        });
+    }
+
+    if (domBtnList) domBtnList.addEventListener('click', () => { viewMode = 'list'; updateViewToggles(); if (currentTableId) renderData(); });
+    if (domBtnGrid) domBtnGrid.addEventListener('click', () => { viewMode = 'grid'; updateViewToggles(); if (currentTableId) renderData(); });
+
+    // Zoom and Edit listeners
+    const btnZoomIn = document.getElementById('btnZoomIn');
+    const btnZoomOut = document.getElementById('btnZoomOut');
+    const btnEdit = document.getElementById('btnEditDiagram');
+    const editor = document.getElementById('diagramEditor');
+    const mermaidArea = document.getElementById('mermaidCode');
+
+    if (btnZoomIn) btnZoomIn.onclick = () => { zoomLevel += 0.1; updateZoom(); };
+    if (btnZoomOut) btnZoomOut.onclick = () => { zoomLevel = Math.max(0.5, zoomLevel - 0.1); updateZoom(); };
+    if (btnEdit) btnEdit.onclick = () => editor.classList.toggle('hidden');
+    if (mermaidArea) {
+        mermaidArea.oninput = (e) => {
+            currentDiagramCode = e.target.value;
+            renderDiagramFromCode(currentDiagramCode);
+        };
+    }
+
+    // Scroll zoom
+    const diagramContainer = document.getElementById('diagramContent');
+    if (diagramContainer) {
+        diagramContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            zoomLevel = Math.max(0.1, Math.min(3, zoomLevel + delta));
+            updateZoom();
+        }, { passive: false });
+    }
+}
+
+function updateZoom() {
+    const wrapper = document.getElementById('diagramContainerWrapper');
+    if (wrapper) {
+        wrapper.style.transform = `scale(${zoomLevel})`;
+        wrapper.style.transition = 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+    }
+}
+
+function clearDiagram() {
+    const container = document.getElementById('diagramContent');
+    if (container) {
+        container.innerHTML = '<div class="text-center text-gray-400 text-xs"><span class="material-symbols-outlined text-3xl mb-2 opacity-20">hub</span><p>Diagrama no disponible</p></div>';
+    }
+}
+
+async function renderDiagram() {
+    if (!currentTables || currentTables.length === 0) {
+        clearDiagram();
+        return;
+    }
+
+    try {
+        let definition = '';
+        if (currentDiagramType === 'er') {
+            definition = 'erDiagram\n';
+            const tableMap = {};
+            const relationships = [];
+
+            for (const table of currentTables) {
+                const fRes = await apiFetch(`/tables/${table.id}/fields`);
+                const fields = fRes.ok ? await fRes.json() : [];
+                const safeName = table.name.replace(/[^a-zA-Z0-9]/g, '_');
+                tableMap[table.id] = safeName;
+                
+                definition += `    ${safeName} {\n`;
+                fields.forEach(f => {
+                    const safeFName = f.name.replace(/[^a-zA-Z0-9]/g, '_');
+                    const typeLabel = f.type.charAt(0).toUpperCase() + f.type.slice(1);
+                    definition += `        ${typeLabel} ${safeFName}\n`;
+                    
+                    if (f.relatedTableId) {
+                        relationships.push({ from: table.id, to: f.relatedTableId, label: f.name });
+                    }
+                });
+                definition += '    }\n';
+            }
+
+            // Add relationships
+            relationships.forEach(rel => {
+                const fromName = tableMap[rel.from];
+                const toName = tableMap[rel.to];
+                if (fromName && toName) {
+                    definition += `    ${fromName} ||--o{ ${toName} : "${rel.label}"\n`;
+                }
+            });
+
+        } else if (currentDiagramType === 'flow') {
+            definition = 'graph TD\n';
+            currentTables.forEach(t => {
+                definition += `    T${t.id}["${t.name}"]\n`;
+            });
+        } else if (currentDiagramType === 'class') {
+            definition = 'classDiagram\n';
+            for (const table of currentTables) {
+                const safeName = table.name.replace(/[^a-zA-Z0-9]/g, '_');
+                definition += `    class ${safeName} {\n    }\n`;
+            }
+        }
+
+        currentDiagramCode = definition;
+        const mermaidArea = document.getElementById('mermaidCode');
+        if (mermaidArea) mermaidArea.value = definition;
+
+        await renderDiagramFromCode(definition);
+    } catch (e) {
+        console.error("Mermaid error:", e);
+    }
+}
+
+async function renderDiagramFromCode(code) {
+    const wrapper = document.getElementById('diagramContainerWrapper');
+    if (!wrapper) return;
+    try {
+        const { svg } = await mermaid.render('mermaid-diag-' + Date.now(), code);
+        wrapper.innerHTML = `<div class="animate-fade-in">${svg}</div>`;
+    } catch (e) {
+        console.error("Render failed", e);
+    }
+}
+
+function updateViewToggles() {
+    if (!domBtnList || !domBtnGrid) return;
+    if (viewMode === 'list') {
+        domBtnList.classList.add('bg-white', 'dark:bg-gray-700', 'text-primary', 'shadow-sm');
+        domBtnList.classList.remove('bg-transparent', 'dark:bg-transparent', 'text-gray-500');
+        domBtnGrid.classList.remove('bg-white', 'dark:bg-gray-700', 'text-primary', 'shadow-sm');
+        domBtnGrid.classList.add('bg-transparent', 'dark:bg-transparent', 'text-gray-500');
+    } else {
+        domBtnGrid.classList.add('bg-white', 'dark:bg-gray-700', 'text-primary', 'shadow-sm');
+        domBtnGrid.classList.remove('bg-transparent', 'dark:bg-transparent', 'text-gray-500');
+        domBtnList.classList.remove('bg-white', 'dark:bg-gray-700', 'text-primary', 'shadow-sm');
+        domBtnList.classList.add('bg-transparent', 'dark:bg-transparent', 'text-gray-500');
+    }
+}
+
+function showEmptyState() {
+    if (domListHeader) domListHeader.classList.add('hidden');
+    if (domEmptyState) domEmptyState.classList.remove('opacity-0', 'pointer-events-none');
+    if (domContent) domContent.innerHTML = '';
+}
+
+function hideEmptyState() {
+    if (domEmptyState) domEmptyState.classList.add('opacity-0', 'pointer-events-none');
+}
+
+function showLoader() {
+    if (domLoader) domLoader.classList.remove('opacity-0', 'pointer-events-none');
+}
+
+function hideLoader() {
+    if (domLoader) domLoader.classList.add('opacity-0', 'pointer-events-none');
+}
+
+async function fetchSystems() {
     try {
         const res = await apiFetch('/systems');
         if (res.ok) {
-            allSystems = await res.json();
-            populateSystemSelects();
-        } else {
-            showError('Error cargando sistemas');
+            const systems = await res.json();
+            if (domSysSelect) {
+                domSysSelect.innerHTML = '<option value="" disabled selected>Selecciona Sistema...</option>';
+                systems.forEach(sys => {
+                    const opt = document.createElement('option');
+                    opt.value = sys.id;
+                    opt.innerText = sys.name;
+                    domSysSelect.appendChild(opt);
+                });
+            }
         }
     } catch (e) {
-        showError('Error de conexión');
-    } finally {
-        hideLoading();
+        console.error("Error fetching systems", e);
     }
 }
 
-function populateSystemSelects() {
-    const sourceSelect = document.getElementById('sourceSystemSelect');
-    const targetSelect = document.getElementById('targetSystemSelect');
-
-    sourceSelect.innerHTML = '<option value="">Seleccionar Sistema...</option>';
-    targetSelect.innerHTML = '<option value="">Seleccionar Sistema...</option>';
-
-    allSystems.forEach(sys => {
-        const option = `<option value="${sys.id}">${sys.name}</option>`;
-        sourceSelect.innerHTML += option;
-        targetSelect.innerHTML += option;
-    });
-}
-
-async function loadSourceTables() {
-    const sourceSystemId = document.getElementById('sourceSystemSelect').value;
-    const container = document.getElementById('tableSelectContainer');
-    const tableInfo = document.getElementById('tableInfo');
-    const moveButton = document.getElementById('moveButton');
-
-    container.innerHTML = '<p class="text-sm text-gray-400 p-2 text-center mt-10">Cargando tablas...</p>';
-    tableInfo.classList.add('hidden');
-    moveButton.disabled = true;
-
-    if (!sourceSystemId) {
-        container.innerHTML = '<p class="text-sm text-gray-400 p-2 text-center mt-10">Primero selecciona un sistema...</p>';
-        return;
+async function fetchTables(sysId) {
+    if (domTabSelect) {
+        domTabSelect.disabled = true;
+        domTabSelect.innerHTML = '<option value="" disabled selected>Cargando...</option>';
     }
-
     try {
-        const res = await apiFetch(`/systems/${sourceSystemId}/tables`);
+        const res = await apiFetch(`/systems/${sysId}/tables`);
         if (res.ok) {
-            const tables = await res.json();
-
-            if (tables.length === 0) {
-                container.innerHTML = '<p class="text-sm text-gray-400 p-2 text-center mt-10">Sin tablas disponibles</p>';
-            } else {
-                container.innerHTML = '';
-                tables.forEach(table => {
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center p-3 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-gray-700 mb-1';
-                    div.innerHTML = `
-                        <input type="checkbox" id="chk_table_${table.id}" value="${table.id}" data-name="${table.name}"
-                            class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                            onchange="checkMoveButtonState()">
-                        <label for="chk_table_${table.id}" class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-200 cursor-pointer flex-1 select-none">
-                            ${table.name}
-                        </label>
-                    `;
-                    container.appendChild(div);
-                });
+            currentTables = await res.json();
+            if (domTabSelect) {
+                domTabSelect.innerHTML = '<option value="" disabled selected>Selecciona Tabla...</option>';
+                if (currentTables.length === 0) {
+                    domTabSelect.innerHTML += `<option value="" disabled>No hay tablas</option>`;
+                } else {
+                    currentTables.forEach(t => {
+                        domTabSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+                    });
+                }
+                domTabSelect.disabled = false;
             }
-        } else {
-            showError('Error cargando tablas');
-            container.innerHTML = '<p class="text-sm text-red-500 p-2 text-center mt-10">Error carga</p>';
         }
     } catch (e) {
-        showError('Error de conexión');
-        container.innerHTML = '<p class="text-sm text-red-500 p-2 text-center mt-10">Error</p>';
+        console.error("Error fetching tables", e);
     }
 }
 
-// Enable button when all defined
-document.getElementById('sourceSystemSelect').addEventListener('change', checkMoveButtonState);
-document.getElementById('targetSystemSelect').addEventListener('change', checkMoveButtonState);
-
-function getSelectedTableCount() {
-    return document.querySelectorAll('#tableSelectContainer input[type="checkbox"]:checked').length;
+async function loadTableData(tabId) {
+    showLoader();
+    hideEmptyState();
+    try {
+        const fieldsRes = await apiFetch(`/tables/${tabId}/fields`);
+        if (fieldsRes.ok) currentFields = await fieldsRes.json();
+        const recordsRes = await apiFetch(`/tables/${tabId}/records`);
+        if (recordsRes.ok) currentRecords = await recordsRes.json();
+        await resolveForeignKeys(currentRecords);
+        renderData();
+    } catch (e) {
+        console.error("Error loading table data", e);
+        showEmptyState();
+    } finally {
+        hideLoader();
+    }
 }
 
-function checkMoveButtonState() {
-    const s = document.getElementById('sourceSystemSelect').value;
-    const t = document.getElementById('targetSystemSelect').value;
-    const selectedCount = getSelectedTableCount();
-    const btn = document.getElementById('moveButton');
+async function resolveForeignKeys(records) {
+    const relationFields = currentFields.filter(f => f.relatedTableId);
+    for (const field of relationFields) {
+        if (!relationCache[field.relatedTableId]) {
+            const res = await apiFetch(`/tables/${field.relatedTableId}/records`);
+            if (res.ok) {
+                const relatedRecords = await res.json();
+                const map = {};
+                relatedRecords.forEach(r => {
+                    const displayVal = field.relatedFieldName ? r.fieldValues[field.relatedFieldName] : r.id;
+                    map[r.id] = displayVal;
+                });
+                relationCache[field.relatedTableId] = map;
+            }
+        }
+    }
+}
 
-    // Prevent moving to same system
-    if (s && t && s === t) {
-        btn.disabled = true;
+function getDisplayValue(field, value) {
+    if (value === null || value === undefined || value === '') return '<span class="text-gray-300 italic">vacío</span>';
+    if (field.type === 'boolean') {
+        return value === 'true' || value === true ? '<span class="text-green-500 font-bold">Sí</span>' : '<span class="text-red-500 font-bold">No</span>';
+    }
+    if (field.type === 'relation') {
+        const relatedMap = relationCache[field.relatedTableId] || {};
+        const safeVal = relatedMap[value] || value;
+        return `<span class="text-blue-500 underline">#${safeVal}</span>`;
+    }
+    return value;
+}
+
+function renderData() {
+    if (!domContent) return;
+    if (currentRecords.length === 0) {
+        if (domListHeader) domListHeader.classList.add('hidden');
+        domContent.className = 'flex-1 overflow-y-auto p-4 flex items-center justify-center';
+        domContent.innerHTML = `<div class="text-center text-gray-400">La tabla no tiene registros.</div>`;
+        return;
+    }
+    if (viewMode === 'list') renderList(); else renderGrid();
+}
+
+function renderList() {
+    domContent.className = 'flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 p-3';
+    if (domListHeader) domListHeader.classList.add('hidden'); 
+    
+    if (currentRecords.length === 0) {
+        domContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full opacity-40 py-10">
+            <span class="material-symbols-outlined text-4xl mb-2">subtitles_off</span>
+            <p class="text-[10px] font-bold uppercase tracking-widest">Sin registros</p>
+        </div>`;
         return;
     }
 
-    btn.disabled = !(s && t && selectedCount > 0);
-
-    updateVisuals();
-}
-
-function updateVisuals() {
-    const sSelect = document.getElementById('sourceSystemSelect');
-    const tSelect = document.getElementById('targetSystemSelect');
-
-    // Update Systems visuals (same as before)
-    const sId = sSelect.value;
-    const tId = tSelect.value;
-    const sSystem = allSystems.find(sys => String(sys.id) === String(sId));
-    const tSystem = allSystems.find(sys => String(sys.id) === String(tId));
-
-    // Source
-    const sLogo = document.getElementById('visualSourceLogo');
-    const sName = document.getElementById('visualSourceName');
-    if (sSystem) {
-        sLogo.src = sSystem.imageUrl || '/static/img/Isotipo modo claro.jpeg';
-        sLogo.classList.remove('opacity-50', 'grayscale');
-        sName.innerText = sSystem.name;
-        sName.classList.remove('text-gray-400');
-        sName.classList.add('text-[#111418]', 'dark:text-white');
-    } else {
-        sLogo.src = '/static/img/Isotipo modo claro.jpeg';
-        sLogo.classList.add('opacity-50', 'grayscale');
-        sName.innerText = 'Selecciona Origen';
-        sName.classList.add('text-gray-400');
-    }
-
-    // Target
-    const tLogo = document.getElementById('visualTargetLogo');
-    const tName = document.getElementById('visualTargetName');
-    if (tSystem) {
-        tLogo.src = tSystem.imageUrl || '/static/img/Isotipo modo claro.jpeg';
-        tLogo.classList.remove('opacity-50', 'grayscale');
-        tName.innerText = tSystem.name;
-        tName.classList.remove('text-gray-400');
-        tName.classList.add('text-[#111418]', 'dark:text-white');
-    } else {
-        tLogo.src = '/static/img/Isotipo modo claro.jpeg';
-        tLogo.classList.add('opacity-50', 'grayscale');
-        tName.innerText = 'Selecciona Destino';
-        tName.classList.add('text-gray-400');
-    }
-
-    // Update Tables Visual
-    const tblContainer = document.getElementById('visualTableContainer');
-    const tblName = document.getElementById('visualTableName');
-
-    const checkboxes = document.querySelectorAll('#tableSelectContainer input[type="checkbox"]:checked');
-    const count = checkboxes.length;
-
-    if (count > 0) {
-        if (count === 1) {
-            tblName.innerText = checkboxes[0].dataset.name;
-        } else {
-            tblName.innerText = `${count} Tablas Seleccionadas`;
-        }
-        tblName.classList.remove('text-gray-500');
-        tblName.classList.add('text-primary', 'font-bold');
-        tblContainer.classList.remove('opacity-50');
-        tblContainer.classList.add('bg-blue-50', 'dark:bg-blue-900/10', 'border-blue-200', 'dark:border-blue-800');
-    } else {
-        tblName.innerText = 'Ninguna tabla seleccionada';
-        tblName.classList.add('text-gray-500');
-        tblName.classList.remove('text-primary', 'font-bold');
-        tblContainer.classList.add('opacity-50');
-        tblContainer.classList.remove('bg-blue-50', 'dark:bg-blue-900/10', 'border-blue-200', 'dark:border-blue-800');
-    }
-}
-
-
-function confirmMove() {
-    const checkboxes = document.querySelectorAll('#tableSelectContainer input[type="checkbox"]:checked');
-    const count = checkboxes.length;
-
-    if (count === 0) return;
-
-    showConfirm(`¿Estás seguro de copiar ${count} tablas? Se crearán copias independientes en el sistema destino.`, async () => {
-        showLoading(`Copiando ${count} tablas...`);
-        try {
-            const targetSystemId = document.getElementById('targetSystemSelect').value;
-            let successCount = 0;
-            let errors = [];
-
-            for (const chk of checkboxes) {
-                const tableId = chk.value;
-                const res = await apiFetch(`/tables/${tableId}/move?targetSystemId=${targetSystemId}`, {
-                    method: 'PUT'
-                });
-                if (res.ok) {
-                    successCount++;
-                } else {
-                    const err = await res.json();
-                    errors.push(chk.dataset.name + ": " + (err.message || 'Error'));
-                }
-            }
-
-            if (errors.length === 0) {
-                showSuccess(`${successCount} tablas copiadas exitosamente`, () => {
-                    loadSourceTables();
-                    document.getElementById('targetSystemSelect').value = "";
-                    checkMoveButtonState();
-                });
-            } else {
-                let msg = `${successCount} copiadas. ${errors.length} errores:\n` + errors.join('\n');
-                showError(msg);
-                loadSourceTables(); // Reload to reflect partial success
-            }
-
-        } catch (e) {
-            console.error(e);
-            showError('Ocurrió un error inesperado');
-        }
+    let rowsHtml = '';
+    currentRecords.forEach(r => {
+        let rowHtml = `<div class="bg-white dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all cursor-default group relative overflow-hidden">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
+                    <span class="text-[9px] font-black uppercase text-gray-400 tracking-wider">Registro #${r.id}</span>
+                </div>
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <a href="table_form.html?systemId=${currentSystemId}&tableId=${currentTableId}" class="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" title="Gestionar Tabla">
+                        <span class="material-symbols-outlined text-[16px]">edit_square</span>
+                    </a>
+                    <button onclick="deleteRecordLocal(${r.id})" class="p-1.5 rounded-lg bg-red-50 dark:bg-red-900/10 text-red-500 hover:bg-red-100 transition-all" title="Eliminar Registro">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                </div>
+            </div>
+            <div class="space-y-3">`;
+        
+        currentFields.slice(0, 5).forEach(f => {
+            const val = getDisplayValue(f, r.fieldValues[f.id]);
+            rowHtml += `<div>
+                <div class="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1 opacity-70">${f.name}</div>
+                <div class="truncate text-[11px] font-semibold text-[#111418] dark:text-gray-200">${val}</div>
+            </div>`;
+        });
+        rowHtml += `</div></div>`;
+        rowsHtml += rowHtml;
     });
+    domContent.innerHTML = rowsHtml;
 }
 
-async function moveTable() {
-    const count = getSelectedTableCount();
-    const targetSystemId = document.getElementById('targetSystemSelect').value;
-    const sourceSystemId = document.getElementById('sourceSystemSelect').value;
+function renderGrid() {
+    if (domListHeader) domListHeader.classList.add('hidden');
+    domContent.className = 'grid grid-cols-1 sm:grid-cols-2 gap-4 p-6';
+    let gridHtml = '';
+    currentRecords.forEach(r => {
+        let cardHtml = `<div class="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm"><div class="font-bold text-xs mb-2">Registro #${r.id}</div>`;
+        currentFields.slice(0, 4).forEach(f => {
+            cardHtml += `<div class="mb-2"><div class="text-[10px] text-gray-400 uppercase">${f.name}</div><div class="text-xs">${getDisplayValue(f, r.fieldValues[f.id])}</div></div>`;
+        });
+        cardHtml += `</div>`;
+        gridHtml += cardHtml;
+    });
+    domContent.innerHTML = gridHtml;
+}
 
-    if (count === 0 || !targetSystemId) return;
-
-    if (sourceSystemId === targetSystemId) {
-        showError('El sistema destino no puede ser igual al origen');
-        return;
+async function deleteRecordLocal(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+        try {
+            const res = await apiFetch(`/tables/${currentTableId}/records/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                // Immediate CRUD feedback: update local state
+                currentRecords = currentRecords.filter(r => r.id !== id);
+                renderData();
+                showSuccess('Registro eliminado correctamente');
+            } else {
+                showError('Error al eliminar el registro');
+            }
+        } catch (e) {
+            console.error("Delete error", e);
+            showError('Error de conexión');
+        }
     }
+}
 
-    confirmMove();
+async function loadSidebarInfo() {
+    const res = await apiFetch('/user/profile');
+    if (res && res.ok) {
+        const u = await res.json();
+        const n = document.getElementById('userName');
+        if (n) n.innerText = u.name;
+    }
 }
 
 init();
