@@ -124,13 +124,13 @@ function updateVisuals() {
     const sLogo = document.getElementById('visualSourceLogo');
     const sName = document.getElementById('visualSourceName');
     if (sSystem) {
-        sLogo.src = sSystem.imageUrl || 'img/Isotipo modo claro.jpeg';
+        sLogo.src = sSystem.imageUrl || '/static/img/Isotipo modo claro.jpeg';
         sLogo.classList.remove('opacity-50', 'grayscale');
         sName.innerText = sSystem.name;
         sName.classList.remove('text-gray-400');
         sName.classList.add('text-[#111418]', 'dark:text-white');
     } else {
-        sLogo.src = 'img/Isotipo modo claro.jpeg';
+        sLogo.src = '/static/img/Isotipo modo claro.jpeg';
         sLogo.classList.add('opacity-50', 'grayscale');
         sName.innerText = 'Selecciona Origen';
         sName.classList.add('text-gray-400');
@@ -140,13 +140,13 @@ function updateVisuals() {
     const tLogo = document.getElementById('visualTargetLogo');
     const tName = document.getElementById('visualTargetName');
     if (tSystem) {
-        tLogo.src = tSystem.imageUrl || 'img/Isotipo modo claro.jpeg';
+        tLogo.src = tSystem.imageUrl || '/static/img/Isotipo modo claro.jpeg';
         tLogo.classList.remove('opacity-50', 'grayscale');
         tName.innerText = tSystem.name;
         tName.classList.remove('text-gray-400');
         tName.classList.add('text-[#111418]', 'dark:text-white');
     } else {
-        tLogo.src = 'img/Isotipo modo claro.jpeg';
+        tLogo.src = '/static/img/Isotipo modo claro.jpeg';
         tLogo.classList.add('opacity-50', 'grayscale');
         tName.innerText = 'Selecciona Destino';
         tName.classList.add('text-gray-400');

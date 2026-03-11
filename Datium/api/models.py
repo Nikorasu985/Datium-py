@@ -41,6 +41,8 @@ class System(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     image_url = models.TextField(null=True, blank=True)
+    security_mode = models.CharField(max_length=20, default='none')
+    general_password = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -75,6 +77,7 @@ class SystemField(models.Model):
         ('number', 'Number'),
         ('date', 'Date'),
         ('boolean', 'Boolean'),
+        ('select', 'Select'),
         ('relation', 'Relation'),
     ]
 
@@ -83,6 +86,8 @@ class SystemField(models.Model):
     type = models.CharField(max_length=20, choices=FIELD_TYPES)
     required = models.BooleanField(default=False)
     order_index = models.IntegerField(default=0)
+    related_table = models.ForeignKey(SystemTable, on_delete=models.SET_NULL, null=True, blank=True, related_name='related_fields')
+    related_display_field = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='display_for_fields')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

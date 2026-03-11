@@ -47,8 +47,8 @@ function injectLoadingHTML() {
     const loadingHTML = `
         <div class="loading-overlay" id="loading-overlay">
             <div class="loading-content">
-                <img src="img/Datium logo modo claro.jpeg" alt="Datium" class="loading-logo block dark:hidden" />
-                <img src="img/Datium logo modo oscuro.jpeg" alt="Datium" class="loading-logo hidden dark:block" />
+                <img src="/static/img/Datium logo modo claro.jpeg" alt="Datium" class="loading-logo block dark:hidden" />
+                <img src="/static/img/Datium logo modo oscuro.jpeg" alt="Datium" class="loading-logo hidden dark:block" />
                 <div id="loading-spinner-container">
                     <div class="loading-spinner" id="loading-spinner"></div>
                     <div class="checkmark" id="checkmark"></div>

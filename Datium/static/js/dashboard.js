@@ -94,7 +94,7 @@ function renderSystemsTable() {
             day: 'numeric'
         }) : 'N/A';
 
-        const imageUrl = system.imageUrl || 'img/Isotipo modo claro.jpeg';
+        const imageUrl = system.imageUrl || '/static/img/Isotipo modo claro.jpeg';
         const securityIcon = system.securityMode === 'none' ? 'lock_open' :
             system.securityMode === 'general' ? 'lock' : 'admin_panel_settings';
         const securityColor = system.securityMode === 'none' ? 'text-gray-400' :
@@ -106,7 +106,7 @@ function renderSystemsTable() {
                     <div class="flex items-center justify-center">
                         <img src="${imageUrl}" alt="${system.name}" 
                              class="w-10 h-10 rounded-lg object-cover border border-gray-700"
-                             onerror="this.src='img/Isotipo modo claro.jpeg'">
+                             onerror="this.src='/static/img/Isotipo modo claro.jpeg'">
                     </div>
                 </td>
                 <td class="py-4 px-5">
@@ -158,14 +158,14 @@ function renderSystemsSlider() {
     if (!sliderContainer || currentSystems.length === 0) return;
 
     sliderContainer.innerHTML = currentSystems.map((system, index) => {
-        const imageUrl = system.imageUrl || 'img/Isotipo modo claro.jpeg';
+        const imageUrl = system.imageUrl || '/static/img/Isotipo modo claro.jpeg';
         return `
             <div class="system-slide min-w-[280px] bg-white/20 dark:bg-black/20 backdrop-blur-md rounded-xl p-4 border border-white/20 dark:border-white/10 hover:bg-white/30 dark:hover:bg-black/30 transition-all cursor-pointer"
                  onclick="enterSystem(${system.id})">
                 <div class="flex items-center gap-3 mb-3">
                     <img src="${imageUrl}" alt="${system.name}" 
                          class="w-24 h-24 rounded-lg object-cover border border-gray-700"
-                         onerror="this.src='img/Isotipo modo claro.jpeg'">
+                         onerror="this.src='/static/img/Isotipo modo claro.jpeg'">
                     <div class="flex-1 min-w-0">
                         <h4 class="text-[#111418] dark:text-white font-bold text-sm truncate">${system.name || 'Sin nombre'}</h4>
                         <p class="text-gray-400 text-xs truncate">${system.description || 'Sin descripción'}</p>

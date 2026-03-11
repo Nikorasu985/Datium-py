@@ -21,8 +21,8 @@ async function loadSystemDetails() {
         document.title = `${system.name} - Datium`;
 
         const img = document.getElementById('systemLogo');
-        img.src = system.imageUrl || 'img/Isotipo modo claro.jpeg';
-        img.onerror = () => { img.src = 'img/Isotipo modo claro.jpeg'; };
+        img.src = system.imageUrl || '/static/img/Isotipo modo claro.jpeg';
+        img.onerror = () => { img.src = '/static/img/Isotipo modo claro.jpeg'; };
     }
 }
 

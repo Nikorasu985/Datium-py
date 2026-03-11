@@ -30,8 +30,8 @@ async function getSystemId() {
 
                 const logoEl = document.getElementById('systemLogo');
                 if (logoEl) {
-                    logoEl.src = sys.imageUrl || 'img/Isotipo modo claro.jpeg';
-                    logoEl.onerror = () => { logoEl.src = 'img/Isotipo modo claro.jpeg'; };
+                    logoEl.src = sys.imageUrl || '/static/img/Isotipo modo claro.jpeg';
+                    logoEl.onerror = () => { logoEl.src = '/static/img/Isotipo modo claro.jpeg'; };
                 }
 
                 document.getElementById('tableName').innerText = table.name;

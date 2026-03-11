@@ -78,7 +78,7 @@ function actualizarIconoTema() {
 
     const favicon = document.getElementById('favicon');
     if (favicon) {
-        favicon.href = esOscuro ? 'img/Isotipo modo oscuro.jpeg' : 'img/Isotipo modo claro.jpeg';
+        favicon.href = esOscuro ? '/static/img/Isotipo modo oscuro.jpeg' : '/static/img/Isotipo modo claro.jpeg';
     }
 }
 
@@ -100,8 +100,8 @@ function obtenerAvatarUsuario(usuario) {
     } else {
         const isDark = document.documentElement.classList.contains('dark');
         return `<div class="isotipo-container w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <img src="img/Isotipo modo claro.jpeg" alt="Datium" class="w-6 h-6 object-contain ${isDark ? 'hidden' : ''}"/>
-            <img src="img/Isotipo modo oscuro.jpeg" alt="Datium" class="w-6 h-6 object-contain ${isDark ? '' : 'hidden'}"/>
+            <img src="/static/img/Isotipo modo claro.jpeg" alt="Datium" class="w-6 h-6 object-contain ${isDark ? 'hidden' : ''}"/>
+            <img src="/static/img/Isotipo modo oscuro.jpeg" alt="Datium" class="w-6 h-6 object-contain ${isDark ? '' : 'hidden'}"/>
         </div>`;
     }
 }
