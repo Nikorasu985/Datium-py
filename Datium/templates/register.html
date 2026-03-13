@@ -76,7 +76,7 @@
 </head>
 
 <body
-    class="font-display bg-background-light dark:bg-background-dark text-[#0d141b] dark:text-slate-200 overflow-y-hidden">
+    class="font-display bg-background-light dark:bg-background-dark text-[#0d141b] dark:text-slate-200 overflow-y-auto">
     <div class="relative flex min-h-screen w-full flex-col items-center justify-center group/design-root">
         <div
             class="absolute -top-1/4 left-0 h-[500px] w-[500px] rounded-full bg-primary/20 blur-[150px] dark:opacity-50">
@@ -153,94 +153,54 @@
                             medida que creces.</p>
                     </div>
                     <div class="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
-                        <div class="flex flex-col rounded-xl border border-primary dark:border-primary bg-white dark:bg-slate-900 ring-2 ring-primary dark:ring-primary shadow-lg p-6"
-                            id="plan-1">
+                        <!-- Free Plan -->
+                        <div class="flex flex-col rounded-xl border-2 border-primary bg-white dark:bg-slate-900 ring-2 ring-primary shadow-lg p-6" id="plan-1">
                             <div class="flex-1">
-                                <h3 class="text-xl font-semibold text-[#0d141b] dark:text-white">Básico</h3>
-                                <p class="mt-1 text-sm text-[#4c739a] dark:text-slate-400">Ideal para empezar y
-                                    proyectos personales.</p>
-                                <p class="mt-4 text-4xl font-bold text-[#0d141b] dark:text-white">$0<span
-                                        class="text-base font-medium text-[#4c739a] dark:text-slate-400"> COP/mes</span>
-                                </p>
+                                <h3 class="text-xl font-bold text-[#0d141b] dark:text-white">Free</h3>
+                                <p class="mt-4 text-4xl font-black text-[#0d141b] dark:text-white">$0</p>
                                 <ul class="mt-6 space-y-3 text-sm text-[#0d141b] dark:text-slate-300">
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> 3
-                                        sistemas de registro</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> 100
-                                        registros/mes</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> 1
-                                        usuario</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> Soporte
-                                        por comunidad</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> 1 Sistema</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> 3 Tablas por sistema</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> 1 GB de almacen</li>
                                 </ul>
                             </div>
-                            <button onclick="seleccionarPlan(1)"
-                                class="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-5 bg-primary/20 dark:bg-primary/20 text-primary dark:text-primary text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/30 dark:hover:bg-primary/30">
+                            <button onclick="seleccionarPlan(1)" class="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-5 bg-primary/20 text-primary text-base font-bold transition-all">
                                 <span class="truncate">Plan seleccionado</span>
                             </button>
                         </div>
-                        <div class="relative flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
-                            id="plan-2">
-                            <div class="absolute -top-3 left-1/2 -translate-x-1/2">
-                                <span
-                                    class="rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white">Más
-                                    popular</span>
+                        <!-- Pro Plan -->
+                        <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 relative" id="plan-2">
+                            <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                                Popular
                             </div>
                             <div class="flex-1">
-                                <h3 class="text-xl font-semibold text-[#0d141b] dark:text-white">Pro</h3>
-                                <p class="mt-1 text-sm text-[#4c739a] dark:text-slate-400">Para profesionales y equipos
-                                    pequeños.</p>
-                                <p class="mt-4 text-4xl font-bold text-[#0d141b] dark:text-white">$49.000<span
-                                        class="text-base font-medium text-[#4c739a] dark:text-slate-400"> COP/mes</span>
-                                </p>
+                                <h3 class="text-xl font-bold text-[#0d141b] dark:text-white">Pro</h3>
+                                <p class="mt-4 text-4xl font-black text-[#0d141b] dark:text-white">$10</p>
                                 <ul class="mt-6 space-y-3 text-sm text-[#0d141b] dark:text-slate-300">
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> 10
-                                        sistemas de registro</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> 5.000
-                                        registros/mes</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> Hasta 5
-                                        usuarios</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> Soporte
-                                        por email</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> 5 Sistemas</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> 10 Tablas por sistema</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> 15 GB de almacen</li>
+                                    <li class="flex items-center gap-2 text-primary font-bold"><span class="material-symbols-outlined text-lg">smart_toy</span> Asistente IA GPT-4o</li>
                                 </ul>
                             </div>
-                            <button onclick="seleccionarPlan(2)"
-                                class="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-base font-bold leading-normal tracking-[0.015em] hover:bg-slate-200 dark:hover:bg-slate-700">
+                            <button onclick="seleccionarPlan(2)" class="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-base font-bold transition-all">
                                 <span class="truncate">Seleccionar plan</span>
                             </button>
                         </div>
-                        <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
-                            id="plan-3">
+                        <!-- Corporate Plan -->
+                        <div class="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6" id="plan-3">
                             <div class="flex-1">
-                                <h3 class="text-xl font-semibold text-[#0d141b] dark:text-white">Empresarial</h3>
-                                <p class="mt-1 text-sm text-[#4c739a] dark:text-slate-400">Para grandes organizaciones y
-                                    equipos.</p>
-                                <p class="mt-4 text-2xl font-bold text-[#0d141b] dark:text-white">Hablemos</p>
+                                <h3 class="text-xl font-bold text-[#0d141b] dark:text-white">Corporate</h3>
+                                <p class="mt-4 text-4xl font-black text-[#0d141b] dark:text-white">$50</p>
                                 <ul class="mt-6 space-y-3 text-sm text-[#0d141b] dark:text-slate-300">
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span>
-                                        Sistemas ilimitados</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span>
-                                        Registros ilimitados</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span>
-                                        Usuarios ilimitados</li>
-                                    <li class="flex items-center gap-2"><span
-                                            class="material-symbols-outlined text-green-500">check_circle</span> Soporte
-                                        prioritario 24/7</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> Sistemas Ilimitados</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> Tablas Ilimitadas</li>
+                                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span> Almacenamiento Ilimitado</li>
+                                    <li class="flex items-center gap-2 text-primary font-bold"><span class="material-symbols-outlined text-lg">auto_awesome</span> IA + Prioridad (Empresarial)</li>
                                 </ul>
                             </div>
-                            <button onclick="seleccionarPlan(3)"
-                                class="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-base font-bold leading-normal tracking-[0.015em] hover:bg-slate-200 dark:hover:bg-slate-700">
-                                <span class="truncate">Contactar ventas</span>
+                            <button onclick="seleccionarPlan(3)" class="mt-6 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-base font-bold transition-all">
+                                <span class="truncate">Seleccionar plan</span>
                             </button>
                         </div>
                     </div>
@@ -278,7 +238,7 @@
 
 
     <script>
-        const API_URL_REGISTER = 'http://localhost:8080/api';
+        const API_URL_REGISTER = window.location.origin + '/api';
         let planSeleccionado = 1;
 
         function seleccionarPlan(planId) {

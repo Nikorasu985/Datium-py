@@ -68,10 +68,8 @@
             <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center gap-4">
                     <div class="logo-container">
-                        <img src="{% static 'img/Datium logo modo claro.jpeg' %}" alt="Datium" class="block dark:hidden"
-                            style="height: 80px; width: auto; max-width: 350px; object-fit: contain;" />
-                        <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" alt="Datium" class="hidden dark:block"
-                            style="height: 80px; width: auto; max-width: 350px; object-fit: contain;" />
+                        <img src="{% static 'img/Datium logo modo claro.jpeg' %}" alt="Datium" class="block dark:hidden h-14 md:h-20 w-auto object-contain max-w-[280px] md:max-w-none" />
+                        <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" alt="Datium" class="hidden dark:block h-14 md:h-20 w-auto object-contain max-w-[280px] md:max-w-none" />
                     </div>
                 </div>
                 <nav class="hidden md:flex flex-1 justify-center gap-8">
@@ -209,92 +207,135 @@
                         <p class="mt-4 text-base font-normal leading-relaxed text-gray-600 dark:text-gray-400">Precios
                             simples y transparentes que escalan con tus necesidades. Sin cargos ocultos.</p>
                     </div>
-                    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div
-                            class="flex flex-col gap-6 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover-lift animate-on-scroll">
-                            <div class="flex flex-col gap-2">
-                                <h3 class="text-lg font-bold text-[#111418] dark:text-white">Básico</h3>
+                    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <!-- Free Plan -->
+                        <div class="flex flex-col gap-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xl hover-lift animate-on-scroll">
+                            <div class="px-6 py-8 bg-gray-50/50 dark:bg-gray-800/50">
+                                <h3 class="text-xl font-black text-[#111418] dark:text-white mb-1">Free</h3>
                                 <p class="flex items-baseline gap-1 text-[#111418] dark:text-white">
-                                    <span class="text-4xl font-black tracking-tighter">$0</span>
-                                    <span class="text-base font-bold">COP/mes</span>
+                                    <span class="text-5xl font-black tracking-tighter">$0</span>
                                 </p>
                             </div>
-                            <a href="register.html"
-                                class="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-background-light dark:bg-gray-800 text-[#111418] dark:text-white text-sm font-bold border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                <span class="truncate">Elegir Plan</span>
-                            </a>
-                            <div class="flex flex-col gap-3 pt-2 border-t border-gray-200 dark:border-gray-800">
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Hasta
-                                    3 sistemas</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>100
-                                    registros/mes</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>1
-                                    usuario</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Soporte
-                                    por comunidad</div>
+                            <div class="px-6 pb-8 flex flex-col h-full">
+                                <div class="flex flex-col gap-4 mb-8">
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        1 Sistema
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        3 Tablas por sistema
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        1 GB de almacen
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-400 dark:text-gray-600 opacity-50">
+                                        <span class="material-symbols-outlined text-red-400">cancel</span>
+                                        Asistente IA Datium
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-400 dark:text-gray-600 opacity-50">
+                                        <span class="material-symbols-outlined text-red-400">cancel</span>
+                                        Estadísticas avanzadas
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-400 dark:text-gray-600 opacity-50">
+                                        <span class="material-symbols-outlined text-red-400">cancel</span>
+                                        Exportación de datos
+                                    </div>
+                                </div>
+                                <a href="register.html?plan=free" class="mt-auto w-full py-4 rounded-xl bg-gray-100 dark:bg-gray-800 text-[#111418] dark:text-white font-bold text-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
+                                    Seleccionar
+                                </a>
                             </div>
                         </div>
-                        <div
-                            class="flex flex-col gap-6 rounded-xl border-2 border-primary bg-white dark:bg-gray-900 p-6 relative shadow-2xl shadow-primary/20 hover-lift animate-on-scroll">
-                            <div class="absolute top-0 right-6 -translate-y-1/2">
-                                <p class="text-white text-xs font-medium rounded-full bg-primary px-3 py-1">Más Popular
-                                </p>
+
+                        <!-- Pro Plan -->
+                        <div class="flex flex-col gap-6 rounded-2xl border-2 border-primary bg-white dark:bg-gray-900 overflow-hidden shadow-2xl shadow-primary/20 relative hover-lift animate-on-scroll">
+                            <div class="absolute top-4 right-4 capitalize">
+                                <span class="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Popular</span>
                             </div>
-                            <div class="flex flex-col gap-2">
-                                <h3 class="text-lg font-bold text-[#111418] dark:text-white">Pro</h3>
+                            <div class="px-6 py-8 bg-primary/5 dark:bg-primary/10">
+                                <h3 class="text-xl font-black text-[#111418] dark:text-white mb-1">Pro</h3>
                                 <p class="flex items-baseline gap-1 text-[#111418] dark:text-white">
-                                    <span class="text-4xl font-black tracking-tighter">$49.000</span>
-                                    <span class="text-base font-bold">COP/mes</span>
+                                    <span class="text-5xl font-black tracking-tighter">$10</span>
+                                    <span class="text-sm font-bold text-gray-500">/mes</span>
                                 </p>
                             </div>
-                            <a href="register.html"
-                                class="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors">
-                                <span class="truncate">Elegir Plan</span>
-                            </a>
-                            <div class="flex flex-col gap-3 pt-2 border-t border-gray-200 dark:border-gray-800">
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Hasta
-                                    10 sistemas</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>5.000
-                                    registros/mes</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Hasta
-                                    5 usuarios</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Soporte
-                                    prioritario</div>
+                            <div class="px-6 pb-8 flex flex-col h-full">
+                                <div class="flex flex-col gap-4 mb-8">
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        5 Sistemas
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        10 Tablas por sistema
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        15 GB de almacen
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-primary font-bold">
+                                        <span class="material-symbols-outlined text-lg">smart_toy</span>
+                                        Asistente IA GPT-4o
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Estadísticas avanzadas
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Exportación CSV / JSON
+                                    </div>
+                                </div>
+                                <a href="register.html?plan=pro" class="mt-auto w-full py-4 rounded-xl bg-primary text-white font-bold text-center shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all">
+                                    Seleccionar
+                                </a>
                             </div>
                         </div>
-                        <div
-                            class="flex flex-col gap-6 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 hover-lift animate-on-scroll">
-                            <div class="flex flex-col gap-2">
-                                <h3 class="text-lg font-bold text-[#111418] dark:text-white">Empresarial</h3>
+
+                        <!-- Corporate Plan -->
+                        <div class="flex flex-col gap-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xl hover-lift animate-on-scroll">
+                            <div class="px-6 py-8 bg-gray-50/50 dark:bg-gray-800/50">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-black text-[#111418] dark:text-white mb-1">Empresarial</h3>
+                                    <span class="bg-gray-900 dark:bg-white dark:text-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Premium</span>
+                                </div>
                                 <p class="flex items-baseline gap-1 text-[#111418] dark:text-white">
-                                    <span class="text-4xl font-black tracking-tighter">Personalizado</span>
+                                    <span class="text-5xl font-black tracking-tighter">$50</span>
+                                    <span class="text-sm font-bold text-gray-500">/mes</span>
                                 </p>
                             </div>
-                            <a href="register.html"
-                                class="flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-background-light dark:bg-gray-800 text-[#111418] dark:text-white text-sm font-bold border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                <span class="truncate">Contactar</span>
-                            </a>
-                            <div class="flex flex-col gap-3 pt-2 border-t border-gray-200 dark:border-gray-800">
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Sistemas
-                                    ilimitados</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Registros
-                                    ilimitados</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Usuarios
-                                    ilimitados</div>
-                                <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span
-                                        class="material-symbols-outlined text-green-500 text-xl icon-hover">check_circle</span>Soporte
-                                    dedicado 24/7</div>
+                            <div class="px-6 pb-8 flex flex-col h-full">
+                                <div class="flex flex-col gap-4 mb-8">
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Sistemas Ilimitados
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Tablas Ilimitadas
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Almacenamiento Ilimitado
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-primary font-bold">
+                                        <span class="material-symbols-outlined text-lg">auto_awesome</span>
+                                        IA + Prioridad (Empresarial)
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Estadísticas completas
+                                    </div>
+                                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>
+                                        Soporte dedicado 24/7
+                                    </div>
+                                </div>
+                                <a href="register.html?plan=corporate" class="mt-auto w-full py-4 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-center hover:opacity-90 transition-all">
+                                    Seleccionar
+                                </a>
                             </div>
                         </div>
                     </div>

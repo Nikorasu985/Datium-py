@@ -31,7 +31,9 @@ async function loadSystemFromApi(id) {
             const sys = systems.find(s => s.id == id);
             if (sys) {
                 loadSystemData(sys);
-                document.querySelector('h1').innerText = 'Editar Sistema';
+                if (document.querySelector('h1')) {
+                    document.querySelector('h1').innerText = 'Configurar Sistema';
+                }
             }
         }
     } catch (e) {
@@ -142,7 +144,15 @@ async function handleFileUpload(file) {
 
         if (res.ok) {
             const data = await res.json();
-            const imageUrl = data.url.startsWith('http') ? data.url : `http://localhost:8080${data.url}`;
+            let imageUrl = data.url;
+
+            // Extract only the path if it's an absolute URL
+            try {
+                if (imageUrl.startsWith('http')) {
+                    const urlObj = new URL(imageUrl);
+                    imageUrl = urlObj.pathname;
+                }
+            } catch(e) { console.error("URL parsing error", e); }
 
             document.getElementById('newSystemImage').value = imageUrl;
 

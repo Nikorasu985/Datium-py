@@ -78,7 +78,7 @@ async function resolveForeignKeys(records) {
     const relationFields = currentFields.filter(f => f.relatedTableId);
 
     for (const field of relationFields) {
-        if (!relationCache[field.relatedTableId]) {
+        if (!relationCache[field.id]) {
             const res = await apiFetch(`/tables/${field.relatedTableId}/records`);
             if (res.ok) {
                 const relatedRecords = await res.json();
@@ -87,7 +87,7 @@ async function resolveForeignKeys(records) {
                     const displayVal = field.relatedFieldName ? r.fieldValues[field.relatedFieldName] : r.id;
                     map[r.id] = displayVal;
                 });
-                relationCache[field.relatedTableId] = map;
+                relationCache[field.id] = map;
             }
         }
     }
@@ -115,12 +115,23 @@ function renderTableBody(records) {
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
             <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">#${r.id}</td>
             ${currentFields.map(f => {
-        let val = r.fieldValues[f.name] || '';
-        if (f.relatedTableId && relationCache[f.relatedTableId]) {
-            val = relationCache[f.relatedTableId][val] || val;
-        }
-        return `<td class="px-6 py-4">${val}</td>`;
-    }).join('')}
+                let val = r.fieldValues[f.name];
+                
+                // Handle relations
+                if (f.relatedTableId && relationCache[f.id]) {
+                    val = relationCache[f.id][val] || val || '';
+                }
+
+                // Handle booleans
+                if (f.type === 'boolean') {
+                    if (val === true || val === 'true') val = '<span class="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 font-bold text-xs">Sí</span>';
+                    else if (val === false || val === 'false') val = '<span class="px-2 py-1 rounded-lg bg-red-500/10 text-red-500 font-bold text-xs">No</span>';
+                    else val = '<span class="text-gray-400 text-xs">N/A</span>';
+                }
+
+                val = val === null || val === undefined ? '' : val;
+                return `<td class="px-6 py-4">${val}</td>`;
+            }).join('')}
             <td class="px-6 py-4">
                 <div class="flex gap-2">
                     <button onclick="editRecord(${r.id})" class="text-blue-500 hover:text-blue-600 p-1 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
@@ -152,8 +163,8 @@ function editRecord(id) {
 
         if (f.type === 'relation') {
             if (el) el.value = val;
-            if (searchEl && relationCache[f.relatedTableId]) {
-                searchEl.value = relationCache[f.relatedTableId][val] || val || '';
+            if (searchEl && relationCache[f.id]) {
+                searchEl.value = relationCache[f.id][val] || val || '';
             }
         } else {
             if (el) el.value = val || '';
@@ -204,16 +215,10 @@ async function saveRecord() {
     });
 
     if (res.ok) {
-        // showSuccess(editingRecordId ? 'Registro actualizado' : 'Registro guardado', () => {
-        //     closeRegisterModal();
-        //     loadData();
-        // });
-
+        closeRegisterModal();
+        loadData();
         const action = editingRecordId ? 'actualizado' : 'guardado';
-        showSuccess(`¡Registro ${action} correctamente!`, () => {
-            closeRegisterModal();
-            loadData();
-        });
+        showSuccess(`¡Registro ${action} correctamente!`);
     } else {
         try {
             const errorData = await res.json();
@@ -231,9 +236,8 @@ async function deleteRecord(id) {
             try {
                 const res = await apiFetch(`/tables/${tableId}/records/${id}`, { method: 'DELETE' });
                 if (res.ok) {
-                    showSuccess('Registro eliminado', () => {
-                        loadData();
-                    });
+                    loadData();
+                    showSuccess('Registro eliminado');
                 } else {
                     showError('Error eliminando registro');
                 }
@@ -289,7 +293,7 @@ async function renderModalFields() {
         } else if (f.type === 'relation') {
             let options = [];
             if (f.relatedTableId) {
-                if (!relationCache[f.relatedTableId]) {
+                if (!relationCache[f.id]) {
                     try {
                         const res = await apiFetch(`/tables/${f.relatedTableId}/records`);
                         if (res.ok) {
@@ -299,12 +303,12 @@ async function renderModalFields() {
                                 const val = f.relatedFieldName ? r.fieldValues[f.relatedFieldName] : r.id;
                                 map[r.id] = val;
                             });
-                            relationCache[f.relatedTableId] = map;
+                            relationCache[f.id] = map;
                             options = Object.entries(map).map(([id, val]) => ({ id, val }));
                         }
                     } catch (err) { console.error(err); }
                 } else {
-                    options = Object.entries(relationCache[f.relatedTableId]).map(([id, val]) => ({ id, val }));
+                    options = Object.entries(relationCache[f.id]).map(([id, val]) => ({ id, val }));
                 }
             }
             const safeOptions = JSON.stringify(options).replace(/"/g, '&quot;');

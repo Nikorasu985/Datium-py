@@ -147,7 +147,7 @@
         </aside>
 
         <main
-            class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-6 w-full">
+            class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-8 w-full">
 
             <!-- Mobile Header -->
             <div class="flex items-center justify-between mb-6 md:hidden">
@@ -340,8 +340,9 @@
                             </div>
                         </div>
 
-                        <div class="overflow-y-auto flex-1 p-0 custom-scrollbar">
-                            <table class="w-full text-left border-collapse">
+                        <div class="overflow-x-auto overflow-y-auto flex-1 p-0 custom-scrollbar">
+                            <div class="min-w-[800px] lg:min-w-0">
+                                <table class="w-full text-left border-collapse">
                                 <thead class="sticky top-0 bg-white dark:bg-[#151f2b] z-10">
                                     <tr class="text-left border-b border-gray-200 dark:border-gray-800">
                                         <th
@@ -363,7 +364,8 @@
                                 </thead>
                                 <tbody id="systemsList" class="divide-y divide-gray-200 dark:divide-gray-800">
                                 </tbody>
-                            </table>
+                                </table>
+                            </div>
 
                             <div id="emptyState"
                                 class="hidden flex flex-col items-center justify-center h-full p-8 text-center">

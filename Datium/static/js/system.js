@@ -267,10 +267,9 @@ async function submitRegister() {
         });
 
         if (res.ok) {
-            showSuccess('Registro guardado', () => {
-                closeRegisterModal();
-                loadTables();
-            });
+            closeRegisterModal();
+            loadTables();
+            showSuccess('Registro guardado');
         } else {
             try {
                 const errorData = await res.json();
@@ -296,9 +295,8 @@ async function deleteTable(id) {
             try {
                 const res = await apiFetch(`/systems/${systemId}/tables/${id}`, { method: 'DELETE' });
                 if (res.ok) {
-                    showSuccess('Tabla eliminada', () => {
-                        loadTables();
-                    });
+                    loadTables();
+                    showSuccess('Tabla eliminada');
                 } else {
                     showError('Error eliminando tabla');
                 }

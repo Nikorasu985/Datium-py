@@ -94,7 +94,10 @@ function renderSystemsTable() {
             day: 'numeric'
         }) : 'N/A';
 
-        const imageUrl = system.imageUrl || '/static/img/Isotipo modo claro.jpeg';
+        let imageUrl = system.imageUrl || '/static/img/Isotipo modo claro.jpeg';
+        if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+            imageUrl = '/' + imageUrl;
+        }
         const securityIcon = system.securityMode === 'none' ? 'lock_open' :
             system.securityMode === 'general' ? 'lock' : 'admin_panel_settings';
         const securityColor = system.securityMode === 'none' ? 'text-gray-400' :

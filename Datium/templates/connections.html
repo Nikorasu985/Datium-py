@@ -131,7 +131,7 @@
         </aside>
 
         <main
-            class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-6 w-full">
+            class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-8 w-full">
 
             <!-- Mobile Header -->
             <div class="flex items-center justify-between mb-6 md:hidden">
@@ -144,7 +144,7 @@
                 </div>
             </div>
 
-            <div class="max-w-6xl mx-auto flex flex-col gap-6 h-[calc(100vh-100px)]">
+            <div class="max-w-7xl mx-auto flex flex-col gap-6 lg:h-[calc(100vh-120px)] w-full">
 
                 <!-- Header Title -->
                 <div
@@ -219,11 +219,11 @@
                 </div>
 
                 <!-- Data Display Area: Redesigned for Diagram Dominance -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
                     
                     <!-- Left (Small): Table/Records Preview -->
                     <div id="dataViewerContainer"
-                        class="lg:col-span-4 bg-white dark:bg-[#151f2b] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden relative flex flex-col group transition-all hover:shadow-2xl">
+                        class="lg:col-span-4 bg-white dark:bg-[#151f2b] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden relative flex flex-col group transition-all hover:shadow-2xl min-h-[300px] lg:min-h-0">
                         
                         <div class="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                             <h3 class="text-[10px] font-black uppercase tracking-widest text-[#111418] dark:text-white flex items-center gap-2 opacity-60">
@@ -253,7 +253,7 @@
                     </div>
 
                     <!-- Right (Dominant): Diagram Viewer -->
-                    <div id="diagramSidebar" class="lg:col-span-8 bg-white dark:bg-[#151f2b] rounded-[2.5rem] border-2 border-primary/5 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden relative group">
+                    <div id="diagramSidebar" class="lg:col-span-8 bg-white dark:bg-[#151f2b] rounded-[2.5rem] border-2 border-primary/5 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden relative group min-h-[400px] lg:min-h-0">
                         <!-- Simplified Controls for "Common People" -->
                         <div class="absolute top-6 right-6 z-30 flex items-center gap-2 p-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-gray-100 dark:border-gray-700 shadow-2xl opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
                             <button id="btnZoomIn" class="p-2.5 rounded-xl hover:bg-primary/10 hover:text-primary transition-all active:scale-90" title="Acercar">
