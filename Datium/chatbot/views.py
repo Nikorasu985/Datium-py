@@ -1,269 +1,408 @@
-import os
-import io
 import json
-from django.conf import settings
+
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
-from .models import ChatMessage
-from api.models import System, SystemRecord, SystemTable, SystemField, SystemRecordValue, AuditLog, User
+
+from .ai_engine import (
+    build_system_prompt,
+    ollama_chat,
+    parse_actions_from_ai_text,
+    strip_json_block,
+)
+from .file_handler import extract_text_from_file
+from .permissions import ensure_ai_plan_access, ensure_authenticated, ensure_system_access
+from .settings_panel import get_ai_config
+from .settings_panel import ai_settings_view
+from .system_context import get_active_system_id_from_request
+from .action_router import route_action
+from .models import ChatConversation, ChatMessage
+from api.models import AuditLog, System, SystemRecord, SystemTable
 
 
-def get_current_user(request):
-    uid = request.session.get('user_id')
-    if not uid:
+def _structured_response(*, title: str, resumen: str, datos_lines: list[str], siguientes: list[str]) -> str:
+    parts = [title.strip(), "", resumen.strip()]
+    if datos_lines:
+        parts += ["", "Datos", ""] + datos_lines
+    if siguientes:
+        parts += ["", "Siguientes pasos", ""] + [f"- {s}" for s in siguientes]
+    return "\n".join([p for p in parts if p is not None]).strip()
+
+
+def _attendance_preview_lines() -> list[str]:
+    return [
+        "Tabla: Estudiantes",
+        "- Nombre",
+        "- Documento",
+        "- Correo",
+        "- Grado",
+        "- Activo",
+        "",
+        "Tabla: Asistencias",
+        "- Fecha",
+        "- Estudiante (relación)",
+        "- Estado (Presente, Ausente, Tarde, Justificado)",
+        "- Observación",
+    ]
+
+
+def _should_bootstrap_attendance(message: str) -> bool:
+    m = (message or "").lower().strip()
+    if any(k in m for k in ("asistencia", "asistencias")):
+        return True
+    return m in ("crealo ya", "créalo ya", "crealo", "créalo", "hazlo", "hacerlo", "crea ya", "crear ya")
+
+
+def _get_conversation_id_from_request(request):
+    try:
+        cid = request.data.get("conversation_id")
+    except Exception:
+        cid = request.POST.get("conversation_id")
+    if cid in (None, "", "null", "None"):
         return None
     try:
-        return User.objects.get(id=uid)
-    except User.DoesNotExist:
+        return int(cid)
+    except Exception:
         return None
 
-def check_pro_plan(user):
-    return True
 
-def resolve_value(field, value):
-    if not value or field.type != 'relation' or not field.related_table:
-        return value
-    try:
-        # value is the ID of a SystemRecord in the related table
-        rel_rec_id = int(str(value).strip())
-        related_record = SystemRecord.objects.get(id=rel_rec_id)
-        display_field = field.related_display_field
-        
-        if display_field:
-            val_obj = SystemRecordValue.objects.filter(record=related_record, field=display_field).first()
-            if val_obj: return val_obj.value
-        
-        # Fallback: try to find a field named 'Nombre' or similar in the target table
-        first_val = SystemRecordValue.objects.filter(record=related_record).first()
-        return first_val.value if first_val else f"Ref:{value}"
-    except:
-        return value
+def _get_or_create_conversation(user, system_id, conversation_id=None):
+    if conversation_id:
+        conv = ChatConversation.objects.filter(id=conversation_id, user=user).first()
+        if conv:
+            return conv
 
-def extract_text_from_file(file_obj):
-    text = ""
-    filename = file_obj.name.lower()
-    try:
-        if filename.endswith('.pdf'):
-            import PyPDF2
-            reader = PyPDF2.PdfReader(file_obj)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-        elif filename.endswith('.docx'):
-            from docx import Document
-            doc = Document(file_obj)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
-        else:
-            text = file_obj.read().decode('utf-8', errors='ignore')
-    except Exception as e:
-        pass
-    return text
+    conv = ChatConversation.objects.filter(user=user, system_id=system_id).order_by("-updated_at").first()
+    if conv:
+        return conv
 
-def build_real_data_context(user, message, system_id=None):
-    systems = System.objects.filter(owner=user)
+    title = "Conversación"
     if system_id:
-        systems = systems.filter(id=system_id)
-        
-    context_parts = []
-    
-    # Smarter table detection
-    all_tables = SystemTable.objects.filter(system__in=systems)
-    mentioned_tables = []
-    message_lower = message.lower()
-    
-    # If a system is focused, we assume the user is talking about its tables
-    if system_id and all_tables.exists():
-        mentioned_tables = list(all_tables)
-    else:
-        for t in all_tables:
-            # Match if table name is in message OR if a significant word from name is in message
-            if t.name.lower() in message_lower or any(len(w) > 3 and w.lower() in message_lower for w in t.name.split()):
-                mentioned_tables.append(t)
-    
-    if mentioned_tables:
-        context_parts.append("DATOS REALES ENCONTRADOS (USA ESTOS DATOS LITERALES, NO INVENTES):")
-        for t in mentioned_tables:
-            fields = SystemField.objects.filter(table=t)
-            f_header = " | ".join([f.name for f in fields])
-            records = SystemRecord.objects.filter(table=t).order_by('-id')[:20]
-            
-            rows = []
-            for rec in records:
-                vals = SystemRecordValue.objects.filter(record=rec)
-                row_dict = {v.field.name: resolve_value(v.field, v.value) for v in vals}
-                row_str = " | ".join([str(row_dict.get(f.name, "")) for f in fields])
-                rows.append(f"| {row_str} |")
-            
-            context_parts.append(f"\n[TABLA: {t.name}]\nCOLUMNAS: {f_header}\n" + "\n".join(rows))
-    
-    return "\n".join(context_parts)
+        sys = System.objects.filter(id=system_id, owner=user).first()
+        if sys and sys.name:
+            title = f"{sys.name} - Conversación"
+    return ChatConversation.objects.create(user=user, system_id=system_id, title=title)
 
-def build_global_context_detailed(user, system_id=None):
-    systems = System.objects.filter(owner=user)
-    if system_id:
-        systems = systems.filter(id=system_id)
-        
-    if not systems.exists():
-        return "El usuario no tiene sistemas registrados en este contexto."
-    context = "ESTRUCTURA COMPLETA DE DATOS (CRUD HABILITADO):\n"
-    for s in systems:
-        context += f"\n[SISTEMA: {s.name} (ID:{s.id})]\n"
-        for t in SystemTable.objects.filter(system=s):
-            fields = SystemField.objects.filter(table=t)
-            f_list = ", ".join([f"{f.name}:{f.id}" for f in fields])
-            context += f" - {t.name} (ID:{t.id}): {f_list}\n"
-    return context
+
+@api_view(["GET", "POST"])
+def conversations_view(request):
+    user, perm = ensure_authenticated(request)
+    if not perm.allowed:
+        return JsonResponse({"error": perm.reason}, status=401)
+
+    system_id = get_active_system_id_from_request(request)
+    if system_id is None:
+        raw = request.GET.get("system_id")
+        if raw:
+            try:
+                system_id = int(raw)
+            except Exception:
+                system_id = None
+    if request.method == "GET":
+        qs = ChatConversation.objects.filter(user=user, system_id=system_id).order_by("-updated_at")
+        return JsonResponse(
+            {
+                "status": "success",
+                "conversations": [
+                    {"id": c.id, "title": c.title, "system_id": c.system_id, "updated_at": c.updated_at.isoformat()}
+                    for c in qs[:50]
+                ],
+            }
+        )
+
+    title = ""
+    try:
+        title = (request.data.get("title") or "").strip()
+    except Exception:
+        title = (request.POST.get("title") or "").strip()
+    if not title:
+        title = "Nueva conversación"
+    conv = ChatConversation.objects.create(user=user, system_id=system_id, title=title)
+    return JsonResponse({"status": "success", "conversation": {"id": conv.id, "title": conv.title}}, status=201)
+
+
+@api_view(["GET", "DELETE"])
+def conversation_history_view(request, conversation_id: int):
+    user, perm = ensure_authenticated(request)
+    if not perm.allowed:
+        return JsonResponse({"error": perm.reason}, status=401)
+
+    conv = ChatConversation.objects.filter(id=conversation_id, user=user).first()
+    if not conv:
+        return JsonResponse({"error": "Conversación no encontrada"}, status=404)
+
+    if request.method == "DELETE":
+        ChatMessage.objects.filter(user=user, conversation=conv).delete()
+        ChatConversation.objects.filter(id=conv.id).update(title=conv.title)
+        return JsonResponse({"status": "success", "message": "Memoria del chat borrada ✅"})
+
+    history = ChatMessage.objects.filter(user=user, conversation=conv).order_by("timestamp")
+    return JsonResponse({"status": "success", "history": [{"role": m.role, "content": m.content} for m in history]})
 
 @api_view(['GET', 'POST', 'DELETE'])
 def chat_view(request, system_id=None):
-    user = get_current_user(request)
-    if not user:
-        return JsonResponse({'error': 'No autenticado'}, status=401)
+    user, perm = ensure_authenticated(request)
+    if not perm.allowed:
+        return JsonResponse({'error': perm.reason}, status=401)
 
     if request.method == 'GET':
-        history = ChatMessage.objects.filter(user=user).order_by('timestamp')
-        return JsonResponse({'status': 'success', 'history': [{'role': m.role, 'content': m.content} for m in history]})
+        cid = request.GET.get("conversation_id")
+        conv = _get_or_create_conversation(user, system_id, int(cid) if cid else None)
+        history = ChatMessage.objects.filter(user=user, conversation=conv).order_by("timestamp")
+        return JsonResponse(
+            {
+                "status": "success",
+                "conversation": {"id": conv.id, "title": conv.title},
+                "history": [{"role": m.role, "content": m.content} for m in history],
+            }
+        )
 
     elif request.method == 'DELETE':
-        ChatMessage.objects.filter(user=user).delete()
-        return JsonResponse({'status': 'success', 'message': 'Chat limpiado correctamente'})
+        cid = request.GET.get("conversation_id")
+        conv = _get_or_create_conversation(user, system_id, int(cid) if cid else None)
+        ChatMessage.objects.filter(user=user, conversation=conv).delete()
+        return JsonResponse({"status": "success", "message": "Memoria del chat borrada ✅"})
 
     elif request.method == 'POST':
-        user_message_content = request.data.get('message', '')
+        plan_perm = ensure_ai_plan_access(user)
+        if not plan_perm.allowed:
+            return JsonResponse(
+                {
+                    "error": plan_perm.reason,
+                    "plans": [
+                        {"id": 1, "name": "Básico", "ai": False},
+                        {"id": 2, "name": "Pro", "ai": True},
+                        {"id": 3, "name": "Empresarial", "ai": True},
+                    ],
+                    "upgradeUrl": "/profile.html",
+                },
+                status=402,
+            )
+
+        cfg = get_ai_config()
+        if not cfg.enabled:
+            return JsonResponse({'error': 'IA desactivada en configuración.'}, status=503)
+
+        user_message_content = ""
+        try:
+            user_message_content = request.data.get("message", "") or ""
+        except Exception:
+            user_message_content = request.POST.get("message", "") or ""
+
         file_context = ""
-        if request.FILES:
+        if getattr(request, "FILES", None):
             for file_obj in request.FILES.values():
-                file_context += f"\n[ARCHIVO: {file_obj.name}]\n{extract_text_from_file(file_obj)}\n"
+                label, text = extract_text_from_file(file_obj)
+                if text:
+                    file_context += f"\n{label}\n{text}\n"
+                else:
+                    file_context += f"\n{label}\n(Sin texto extraíble)\n"
 
         if not user_message_content and not file_context:
             return JsonResponse({'error': 'Vacío'}, status=400)
 
-        ChatMessage.objects.create(user=user, role='user', content=user_message_content + file_context)
-        
-        selected_system_id = request.data.get('system_id') or request.POST.get('system_id')
+        selected_system_id = get_active_system_id_from_request(request)
+        perm2 = ensure_system_access(user, selected_system_id)
+        if not perm2.allowed:
+            return JsonResponse({'error': perm2.reason}, status=403)
 
-        global_structure = build_global_context_detailed(user, system_id=selected_system_id)
-        real_data = build_real_data_context(user, user_message_content, system_id=selected_system_id)
-        
-        # Audit Context check
-        audit_context = ""
-        if any(w in user_message_content.lower() for w in ['audit', 'historial', 'cambios', 'actividad']):
-            logs = AuditLog.objects.filter(user=user).order_by('-timestamp')[:15]
-            if logs:
-                audit_context = "\n[HISTORIAL DE ACTIVIDAD RECIENTE]:\n" + "\n".join([f"- {l.timestamp}: {l.action} en {l.table_name or 'N/A'}" for l in logs])
-        
-        system_prompt = (
-            "Eres Datium AI, la extensión del usuario con acceso TOTAL e INSTANTÁNEO a MySQL y Python.\n"
-            "1. CERO DUDAS: Nunca digas que tus datos son limitados. Si hay 'DATOS REALES', úsalos. Si no hay, indica que la tabla está vacía.\n"
-            "2. RESPUESTA INMEDIATA: No saludes. Directo a la información.\n"
-            "3. FORMATO:\n"
-            "   Sistema: [Nombre]\n"
-            "   Tabla: [Nombre]\n"
-            "   Estado: [Resumen humano]\n"
-            "4. LITERALIDAD: Usa nombres reales (ej. 'Ana Díaz'), NO IDs. Convierte booleanos a Sí/No o Presente/Ausente.\n"
-            "5. TABLAS: Usa tablas Markdown premium.\n"
-            f"6. FOCO ACTIVO: {selected_system_id or 'Contexto Global'}.\n"
-            f"\nESTRUCTURA: {global_structure}\n"
-            f"\nDATOS REALES: {real_data}\n"
-            f"{audit_context}\n"
-            "\nGenera la respuesta con los DATOS REALES arriba."
+        conv_id = _get_conversation_id_from_request(request)
+        conv = _get_or_create_conversation(user, selected_system_id, conv_id)
+
+        ChatMessage.objects.create(
+            user=user,
+            conversation=conv,
+            system_id=selected_system_id,
+            role='user',
+            content=(user_message_content + ("\n" + file_context if file_context else "")).strip(),
         )
 
-        history = ChatMessage.objects.filter(user=user).order_by('timestamp')
+        if selected_system_id and _should_bootstrap_attendance(user_message_content):
+            existing = set(SystemTable.objects.filter(system_id=selected_system_id).values_list("name", flat=True))
+            if not {"Estudiantes", "Asistencias"}.issubset(existing):
+                user_name = (user.name or user.email or "Usuario").strip()
+                content = _structured_response(
+                    title=f"{user_name}, voy a crear el sistema de asistencia 😊",
+                    resumen="Se creará la estructura base para gestionar asistencia estudiantil en el sistema seleccionado.",
+                    datos_lines=_attendance_preview_lines(),
+                    siguientes=["Validar permisos y ejecutar cambios."],
+                )
+                actions = [{"action": "bootstrap_attendance_schema", "payload": {"systemId": selected_system_id}}]
+                ChatMessage.objects.create(user=user, conversation=conv, system_id=selected_system_id, role='assistant', content=content)
+                ChatConversation.objects.filter(id=conv.id).update(title="Asistencias - Estructura base")
+                return JsonResponse(
+                    {
+                        "status": "success",
+                        "content": content,
+                        "confirmation_required": True,
+                        "summary": "Crear esquema base: Estudiantes y Asistencias",
+                        "actions": actions,
+                        "conversation": {"id": conv.id, "title": "Asistencias - Estructura base"},
+                    },
+                    status=201,
+                )
+
+        system_prompt = build_system_prompt(
+            user=user,
+            system_id=selected_system_id,
+            user_message=user_message_content,
+            file_context=file_context,
+        )
+
+        history = ChatMessage.objects.filter(user=user, conversation=conv).order_by("timestamp")
         messages_llm = [{'role': 'system', 'content': system_prompt}]
         for msg in list(history)[-10:]:
-            messages_llm.append({'role': msg.role, 'content': msg.content})
+            role = msg.role if msg.role in ('user', 'assistant', 'system') else 'user'
+            messages_llm.append({'role': role, 'content': msg.content})
 
         try:
-            from zhipuai import ZhipuAI
-            client = ZhipuAI(api_key="14f85efe418842258598efb71438945a.FaYfCchiuqEwaEGKFWV-3J7f")
-            
-            response = client.chat.completions.create(
-                model="glm-4",
-                messages=messages_llm
+            ai_text = ollama_chat(cfg.model, messages_llm)
+            parsed = parse_actions_from_ai_text(ai_text)
+            content = strip_json_block(ai_text) or "No se obtuvo una respuesta válida del modelo."
+
+            actions = parsed.get("actions", []) if isinstance(parsed, dict) else []
+            if not isinstance(actions, list):
+                actions = []
+
+            if selected_system_id:
+                for a in actions:
+                    if not isinstance(a, dict):
+                        continue
+                    payload = a.get("payload")
+                    if isinstance(payload, dict) and "systemId" not in payload:
+                        if a.get("action") in ("create_table", "update_table", "delete_table", "list_tables"):
+                            payload["systemId"] = selected_system_id
+
+            user_lower = (user_message_content or "").lower()
+            if selected_system_id and not actions and _should_bootstrap_attendance(user_message_content):
+                actions = [
+                    {
+                        "action": "bootstrap_attendance_schema",
+                        "payload": {"systemId": selected_system_id},
+                    }
+                ]
+                parsed["confirmation_required"] = True
+                parsed["summary"] = "Crear esquema base: Estudiantes y Asistencias"
+
+            if actions and not content:
+                content = _structured_response(
+                    title="Acción propuesta",
+                    resumen=parsed.get("summary", "Se propone ejecutar cambios en el sistema."),
+                    datos_lines=[],
+                    siguientes=["Validar permisos y ejecutar cambios."],
+                )
+
+            user_name = (user.name or user.email or "Usuario").strip()
+            if user_name and not content.startswith(user_name):
+                content = f"{user_name}: {content}"
+            ChatMessage.objects.create(user=user, conversation=conv, system_id=selected_system_id, role='assistant', content=content)
+            return JsonResponse(
+                {
+                    'status': 'success',
+                    'content': content,
+                    'confirmation_required': bool(parsed.get('confirmation_required', False)),
+                    'summary': parsed.get('summary', ''),
+                    'actions': actions,
+                    "conversation": {"id": conv.id, "title": conv.title},
+                },
+                status=201,
             )
-            ai_content = response.choices[0].message.content
-            
-            # Fast parsing
-            conf_req = False
-            summary, actions = "", []
-            if "```json" in ai_content:
-                try:
-                    parts = ai_content.split("```json")
-                    ai_content = parts[0].strip()
-                    parsed = json.loads(parts[1].split("```")[0].strip())
-                    conf_req = parsed.get("confirmation_required", False)
-                    summary = parsed.get("summary", "")
-                    actions = parsed.get("actions", [])
-                except: pass
-
-            if not ai_content or ai_content.strip() == "":
-                ai_content = "Lo siento, la base de datos no devolvió información clara. ¿Podrías intentar ser más específico o verificar el sistema seleccionado?"
-
-            ChatMessage.objects.create(user=user, role='assistant', content=ai_content)
-            return JsonResponse({'status': 'success', 'content': ai_content, 'confirmation_required': conf_req, 'summary': summary, 'actions': actions}, status=201)
         except Exception as e:
-            import traceback
-            traceback.print_exc()
             return JsonResponse({'error': str(e)}, status=503)
 
 @api_view(['POST'])
 def execute_action_view(request):
-    user = get_current_user(request)
-    if not user: return JsonResponse({'error': '401'}, status=401)
-    actions = request.data.get('actions', [])
+    user, perm = ensure_authenticated(request)
+    if not perm.allowed:
+        return JsonResponse({'error': perm.reason}, status=401)
+
+    plan_perm = ensure_ai_plan_access(user)
+    if not plan_perm.allowed:
+        return JsonResponse({'error': plan_perm.reason}, status=402)
+
+    actions = []
+    try:
+        actions = request.data.get('actions', []) or []
+    except Exception:
+        actions = []
+
     results = []
-    for action in actions:
+    for a in actions:
+        if not isinstance(a, dict):
+            results.append({'ok': False, 'error': 'Acción inválida'})
+            continue
+
+        action_name = a.get("action") or a.get("type")
+        payload = a.get("payload") or a
+
         try:
-            a_type = action.get('type')
-            if a_type == 'system_create':
-                s = System.objects.create(owner=user, name=action.get('name', 'Nuevo Sistema'))
-                results.append({'status': 'ok', 'id': s.id, 'msg': 'Sistema creado'})
-            elif a_type == 'system_update':
-                s = System.objects.get(id=action['system_id'], owner=user)
-                if 'name' in action: s.name = action['name']
-                if 'description' in action: s.description = action['description']
-                s.save()
-                results.append({'status': 'ok', 'msg': 'Sistema actualizado'})
-            elif a_type == 'system_delete':
-                System.objects.get(id=action['system_id'], owner=user).delete()
-                results.append({'status': 'ok', 'msg': 'Sistema eliminado'})
-            elif a_type == 'table_create':
-                sys = System.objects.get(id=action['system_id'], owner=user)
-                t = SystemTable.objects.create(system=sys, name=action.get('name', 'Nueva Tabla'))
-                results.append({'status': 'ok', 'id': t.id, 'msg': 'Tabla creada'})
-            elif a_type == 'table_delete':
-                SystemTable.objects.get(id=action['table_id'], system__owner=user).delete()
-                results.append({'status': 'ok', 'msg': 'Tabla eliminada'})
-            elif a_type == 'field_create':
-                table = SystemTable.objects.get(id=action['table_id'], system__owner=user)
-                f = SystemField.objects.create(table=table, name=action['name'], type=action.get('type_field', 'text'))
-                results.append({'status': 'ok', 'id': f.id, 'msg': 'Campo creado'})
-            
-            # Legacy/Record actions
-            elif a_type == 'create':
-                table = SystemTable.objects.get(id=action['table_id'], system__owner=user)
-                rec = SystemRecord.objects.create(table=table)
-                for f_id, val in action.get('field_values', {}).items():
-                    f = SystemField.objects.get(id=int(f_id), table=table)
-                    SystemRecordValue.objects.create(record=rec, field=f, value=str(val))
-                results.append({'status': 'ok', 'id': rec.id})
-            elif a_type == 'update':
-                table = SystemTable.objects.get(id=action['table_id'], system__owner=user)
-                rec = SystemRecord.objects.get(id=action['record_id'], table=table)
-                for f_id, val in action.get('field_values', {}).items():
-                    f = SystemField.objects.get(id=int(f_id), table=table)
-                    rv, _ = SystemRecordValue.objects.get_or_create(record=rec, field=f)
-                    rv.value = str(val); rv.save()
-                results.append({'status': 'ok'})
-            elif a_type == 'delete':
-                table = SystemTable.objects.get(id=action['table_id'], system__owner=user)
-                SystemRecord.objects.get(id=action['record_id'], table=table).delete()
-                results.append({'status': 'ok'})
-        except Exception as e:
-            results.append({'status': 'error', 'msg': str(e)})
+            system_id = payload.get("systemId")
+            if not system_id:
+                table_id = payload.get("tableId") or payload.get("table_id")
+                if table_id:
+                    system_id = SystemTable.objects.filter(id=int(table_id)).values_list("system_id", flat=True).first()
+                else:
+                    record_id = payload.get("recordId") or payload.get("record_id")
+                    if record_id:
+                        system_id = SystemRecord.objects.filter(id=int(record_id)).values_list("table__system_id", flat=True).first()
+            system = System.objects.filter(id=int(system_id)).first() if system_id else None
+            if system:
+                AuditLog.objects.create(
+                    user=user,
+                    system=system,
+                    action=f"IA_{str(action_name).upper()}",
+                    details=json.dumps(payload, ensure_ascii=False)[:2000],
+                    ip=request.META.get("REMOTE_ADDR", "") or "",
+                )
+        except Exception:
+            pass
+
+        r = route_action(request, action_name, payload)
+        links = []
+        try:
+            if r.ok and isinstance(r.data, dict):
+                if action_name in ("create_system", "update_system"):
+                    sid = r.data.get("id")
+                    name = r.data.get("name", "Sistema")
+                    if sid:
+                        links.append({"label": f"Abrir sistema {name}", "url": f"/system.html?id={sid}"})
+                if action_name in ("create_table", "update_table"):
+                    tid = r.data.get("id")
+                    name = r.data.get("name", "Tabla")
+                    if tid:
+                        links.append({"label": f"Abrir tabla {name}", "url": f"/table.html?id={tid}"})
+                if action_name == "bootstrap_attendance_schema":
+                    sid = r.data.get("systemId")
+                    if sid:
+                        links.append({"label": "Abrir sistema (Asistencias)", "url": f"/system.html?id={sid}"})
+                    for t in r.data.get("tables", []) or []:
+                        if isinstance(t, dict) and t.get("id"):
+                            links.append({"label": f"Abrir tabla {t.get('name', 'Tabla')}", "url": f"/table.html?id={t['id']}"})
+        except Exception:
+            links = []
+
+        results.append({'ok': r.ok, 'status_code': r.status_code, 'data': r.data, 'error': r.error, 'links': links})
+
     return JsonResponse({'status': 'success', 'results': results})
 
 @api_view(['GET'])
 def model_status(request):
-    return JsonResponse({'status': 'ONLINE', 'model': 'qwen3.5:0.8b'})
+    cfg = get_ai_config()
+    if not cfg.enabled:
+        return JsonResponse({'status': 'OFFLINE', 'model': cfg.model, 'enabled': False})
+    try:
+        import ollama  # type: ignore
+        return JsonResponse({'status': 'ONLINE', 'model': cfg.model, 'enabled': True})
+    except Exception:
+        return JsonResponse({'status': 'OFFLINE', 'model': cfg.model, 'enabled': True})
+
+
+@api_view(["POST"])
+def api_message_view(request):
+    resp = chat_view(request)
+    try:
+        if resp.status_code >= 400:
+            return resp
+        payload = json.loads(resp.content.decode("utf-8"))
+        return JsonResponse({"reply": payload.get("content", ""), "actions": payload.get("actions", [])})
+    except Exception:
+        return JsonResponse({"reply": "", "actions": []}, status=200)

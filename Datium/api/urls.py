@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from chatbot.views import api_message_view
 
 urlpatterns = [
     # Auth
@@ -43,4 +44,7 @@ urlpatterns = [
 
     # Upload
     path('upload/image', views.upload_image_view),
+
+    # Chatbot (API)
+    path('chatbot/message', api_message_view),
 ]

@@ -2,10 +2,11 @@ let currentSystemId = null;
 let isWaitingResponse = false;
 let selectedFiles = [];
 let currentXhr = null;
+let currentConversationId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     checkAiStatus();
-    loadChatHistory();
+    initConversations();
     
     const chatInput = document.getElementById('chatInput');
     if (chatInput) {
@@ -31,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 toggleInputState(true);
                 const typingIndicators = document.querySelectorAll('[id^="typing-"]');
                 typingIndicators.forEach(el => el.remove());
-                addMessageToUI('ai', '⚠️ Respuesta interrumpida por el usuario.', true);
+                addMessageToUI('ai', 'Respuesta interrumpida por el usuario.', true);
             }
         };
     }
@@ -43,7 +44,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initVoice();
     loadSystems();
+
+    const systemSelector = document.getElementById('systemSelector');
+    if (systemSelector) {
+        systemSelector.addEventListener('change', () => {
+            currentSystemId = systemSelector.value || null;
+            initConversations();
+        });
+    }
 });
+
+function conversationStorageKey() {
+    const sysId = document.getElementById('systemSelector')?.value || 'global';
+    return `datium_chat_conversation_${sysId}`;
+}
+
+async function initConversations() {
+    await loadConversations();
+    const stored = localStorage.getItem(conversationStorageKey());
+    if (stored) currentConversationId = stored;
+    const selector = document.getElementById('conversationSelector');
+    if (selector && currentConversationId) selector.value = String(currentConversationId);
+    if (!currentConversationId) {
+        await createNewConversation(true);
+    } else {
+        await loadChatHistory();
+    }
+}
+
+async function loadConversations() {
+    const selector = document.getElementById('conversationSelector');
+    if (!selector) return;
+    selector.innerHTML = '<option value="">Cargando...</option>';
+    try {
+        const sysId = document.getElementById('systemSelector')?.value;
+        const url = '/chatbot/conversations/' + (sysId ? `?system_id=${encodeURIComponent(sysId)}` : '');
+        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+        if (!res.ok) return;
+        const data = await res.json();
+        const convs = data.conversations || [];
+        selector.innerHTML = '';
+        convs.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = c.title || `Conversación #${c.id}`;
+            selector.appendChild(opt);
+        });
+        selector.onchange = async () => {
+            currentConversationId = selector.value || null;
+            if (currentConversationId) localStorage.setItem(conversationStorageKey(), String(currentConversationId));
+            await loadChatHistory();
+        };
+    } catch (e) {
+        console.error('Error loading conversations', e);
+    }
+}
+
+async function createNewConversation(silent = false) {
+    try {
+        const sysId = document.getElementById('systemSelector')?.value;
+        const res = await fetch('/chatbot/conversations/' + (sysId ? `?system_id=${encodeURIComponent(sysId)}` : ''), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+            body: JSON.stringify({ title: 'Nueva conversación' })
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const conv = data.conversation;
+        currentConversationId = conv?.id || null;
+        if (currentConversationId) localStorage.setItem(conversationStorageKey(), String(currentConversationId));
+        await loadConversations();
+        const selector = document.getElementById('conversationSelector');
+        if (selector && currentConversationId) selector.value = String(currentConversationId);
+        await loadChatHistory();
+        if (!silent) addMessageToUI('ai', 'Nueva conversación creada 😊', true);
+    } catch (e) {
+        console.error('Error creating conversation', e);
+    }
+}
 
 async function loadSystems() {
     try {
@@ -94,13 +172,14 @@ async function loadChatHistory() {
     const clearBtn = document.getElementById('btnClearHistory');
     if (!container) return;
     try {
-        const res = await fetch('/chatbot/history/', { 
+        if (!currentConversationId) return;
+        const url = `/chatbot/conversations/${currentConversationId}/`;
+        const res = await fetch(url, {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } 
         });
         if (res.ok) {
             const data = await res.json();
             if (data.status === 'success' && data.history.length > 0) {
-                // Keep welcome message and append history
                 const welcome = document.getElementById('chatWelcome');
                 container.innerHTML = '';
                 if (welcome) container.appendChild(welcome);
@@ -109,8 +188,9 @@ async function loadChatHistory() {
                     addMessageToUI(msg.role, msg.content, false);
                 });
             } else {
-                // If no history, show sync message
-                addMessageToUI('ai', '⚡ Sincronizando con tu base de datos... Memoria analizada. Estoy listo para ayudarte.', true);
+                const welcome = document.getElementById('chatWelcome');
+                container.innerHTML = '';
+                if (welcome) container.appendChild(welcome);
             }
         }
     } catch (e) {
@@ -119,20 +199,30 @@ async function loadChatHistory() {
 }
 
 async function clearHistory() {
-    showConfirmation('¿Deseas vaciar el historial del chat?', async (confirmed) => {
+    showConfirmation('¿Deseas vaciar el historial de este chat?', async (confirmed) => {
         if (!confirmed) return;
         try {
-            const res = await fetch('/chatbot/history/clear/', { 
+            if (!currentConversationId) return;
+            const url = `/chatbot/conversations/${currentConversationId}/`;
+            const res = await fetch(url, { 
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } 
             });
             if (res.ok) {
-                // Clear UI immediately without refresh
+                pendingAiActions = null;
+                selectedFiles = [];
+                renderFilePreviews();
+                if (currentXhr) {
+                    try { currentXhr.abort(); } catch (e) {}
+                    currentXhr = null;
+                }
+                isWaitingResponse = false;
+                toggleInputState(true);
                 const container = document.getElementById('chatMessages');
                 const welcome = document.getElementById('chatWelcome');
                 container.innerHTML = '';
                 if (welcome) container.appendChild(welcome);
-                addMessageToUI('ai', '✨ Historial limpiado correctamente.', true);
+                addMessageToUI('ai', 'Memoria del chat borrada ✅', true);
             }
         } catch (e) {
             console.error("Error clearing history", e);
@@ -189,8 +279,6 @@ async function sendMessage() {
     if (!text && selectedFiles.length === 0) return;
     if (isWaitingResponse) return;
 
-    // No longer hiding welcome message
-
     let displayContent = text;
     let systemInfo = null;
     const sysSelector = document.getElementById('systemSelector');
@@ -199,7 +287,7 @@ async function sendMessage() {
     }
     
     if (selectedFiles.length > 0) {
-        displayContent += '\n\n📎 ' + selectedFiles.map(f => f.name).join(', ');
+        displayContent += '\n\nAdjuntos: ' + selectedFiles.map(f => f.name).join(', ');
     }
     addMessageToUI('user', displayContent, true, null, systemInfo);
     
@@ -226,6 +314,7 @@ async function sendMessage() {
     try {
         const formData = new FormData();
         formData.append('message', originalText);
+        if (currentConversationId) formData.append('conversation_id', currentConversationId);
         
         const sysSelector = document.getElementById('systemSelector');
         if (sysSelector && sysSelector.value) {
@@ -248,19 +337,36 @@ async function sendMessage() {
             }
         };
 
-        currentXhr.onload = function() {
-            if (!currentXhr) return; // Already aborted
+        currentXhr.onload = async function() {
+            if (!currentXhr) return;
             removeTypingIndicator(typingId);
             if (currentXhr.status === 200 || currentXhr.status === 201) {
                 const data = JSON.parse(currentXhr.responseText);
                 if (data.status === 'success') {
-                    // Inject actions into data for render
+                    if (data.conversation && data.conversation.id) {
+                        currentConversationId = data.conversation.id;
+                        localStorage.setItem(conversationStorageKey(), String(currentConversationId));
+                        await loadConversations();
+                        const selector = document.getElementById('conversationSelector');
+                        if (selector) selector.value = String(currentConversationId);
+                    }
                     addMessageToUI('ai', data.content, true, data.actions);
                 } else {
-                    addMessageToUI('ai', '❌ Error: ' + (data.error || data.message), true);
+                    addMessageToUI('ai', 'Error: ' + (data.error || data.message), true);
+                }
+            } else if (currentXhr.status === 402) {
+                try {
+                    const data = JSON.parse(currentXhr.responseText);
+                    const plans = data.plans || [];
+                    let msg = `### Datium AI no disponible en tu plan\n${data.error || ''}\n\n### Planes\n`;
+                    msg += plans.map(p => `- **${p.name}**: ${p.ai ? 'Incluye IA' : 'Sin IA'}`).join('\n');
+                    msg += `\n\n### Subir de plan\n- Abrir planes: ${data.upgradeUrl || '/profile.html'}`;
+                    addMessageToUI('ai', msg, true);
+                } catch (e) {
+                    addMessageToUI('ai', 'Datium AI no está disponible en tu plan. Abre /profile.html para subir a Pro.', true);
                 }
             } else {
-                addMessageToUI('ai', '❌ Error del servidor: ' + currentXhr.status, true);
+                addMessageToUI('ai', 'Error del servidor: ' + currentXhr.status, true);
             }
             isWaitingResponse = false;
             currentXhr = null;
@@ -272,7 +378,7 @@ async function sendMessage() {
         currentXhr.onerror = function() {
             if (!currentXhr) return;
             removeTypingIndicator(typingId);
-            addMessageToUI('ai', '❌ Error de red.', true);
+            addMessageToUI('ai', 'Error de red.', true);
             isWaitingResponse = false;
             currentXhr = null;
             toggleInputState(true);
@@ -282,7 +388,7 @@ async function sendMessage() {
 
     } catch (e) {
         removeTypingIndicator(typingId);
-        addMessageToUI('ai', '❌ Error inesperado.', true);
+        addMessageToUI('ai', 'Error inesperado.', true);
         isWaitingResponse = false;
         currentXhr = null;
         toggleInputState(true);
@@ -291,19 +397,29 @@ async function sendMessage() {
 
 function formatAiMessage(content) {
     if (!content) return "No hay contenido para mostrar.";
-    
-    // Handle the "View" format with specific styling for non-technical users
-    let html = content
+
+    const normalize = (txt) => {
+        let t = (txt || '').trim();
+        t = t.replace(/^\s*#+\s*/gm, '');
+        t = t.replace(/\?\?\?\?+/g, '');
+        t = t.replace(/[^\S\r\n]+/g, ' ');
+        return t;
+    };
+
+    let html = normalize(content)
         .replace(/Sistema: (.*)/g, '<div class="text-[10px] uppercase tracking-widest text-primary font-black mb-1">Sistema: $1</div>')
         .replace(/Tabla: (.*)/g, '<div class="text-xs font-bold dark:text-white mb-0.5">Tabla: $1</div>')
         .replace(/Filtro: (.*)/g, '<div class="text-xs text-gray-500 mb-0.5 italic">Filtro: $1</div>')
         .replace(/Estado: (.*)/g, '<div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold mt-2">● $1</div>')
         .replace(/\*\*(.*?)\*\*/g, '<span class="font-black text-primary">$1</span>')
+        .replace(/^####\s+(.*)/gm, '<span class="text-xs font-black text-primary/90 block mt-3 mb-1">$1</span>')
+        .replace(/^###\s+(.*)/gm, '<span class="text-sm font-black text-primary block mt-3 mb-1">$1</span>')
+        .replace(/^##\s+(.*)/gm, '<span class="text-base font-black text-primary block mt-3 mb-1">$1</span>')
+        .replace(/^#\s+(.*)/gm, '<span class="text-lg font-black text-primary block mt-3 mb-1">$1</span>')
         .replace(/^\- (.*)/gm, '• $1')
-        .replace(/^### (.*)/gm, '<span class="text-sm font-black text-primary block mt-2 mb-1">$1</span>')
+        .replace(/^\* (.*)/gm, '• $1')
         .replace(/\n/g, '<br>');
 
-    // Simple markdown table conversion
     if (html.includes('|')) {
         const lines = html.split('<br>');
         let inTable = false;
@@ -318,12 +434,11 @@ function formatAiMessage(content) {
                 }
                 
                 const cells = line.split('|').filter((c, i, a) => i > 0 && i < a.length - 1);
-                if (line.includes('---')) return; // Skip separator
+                if (line.includes('---')) return;
                 
                 tableHtml += '<tr class="border-b border-gray-100 dark:border-gray-700/50">';
                 cells.forEach(cell => {
-                    const tag = line.includes('---') ? 'th' : 'td';
-                    tableHtml += `<${tag} class="p-2.5 text-xs">${cell.trim()}</${tag}>`;
+                    tableHtml += `<td class="p-2.5 text-xs">${cell.trim()}</td>`;
                 });
                 tableHtml += '</tr>';
             } else {
@@ -345,10 +460,34 @@ function formatAiMessage(content) {
     return html;
 }
 
+function buildHumanPreviewFromActions(actions) {
+    const a = Array.isArray(actions) ? actions : [];
+    const lines = [];
+    const pushTable = (name, fields) => {
+        lines.push(`Tabla: ${name}`);
+        (fields || []).forEach(f => lines.push(`- ${f}`));
+        lines.push('');
+    };
+
+    a.forEach(x => {
+        const action = x?.action || x?.type;
+        const payload = x?.payload || {};
+        if (action === 'bootstrap_attendance_schema') {
+            pushTable('Estudiantes', ['Nombre', 'Documento', 'Correo', 'Grado', 'Activo']);
+            pushTable('Asistencias', ['Fecha', 'Estudiante (relación)', 'Estado (Presente, Ausente, Tarde, Justificado)', 'Observación']);
+        }
+        if (action === 'create_table' && payload?.name) {
+            const f = (payload.fields || []).map(fd => fd.name).filter(Boolean);
+            pushTable(payload.name, f.length ? f : ['(Sin campos definidos)']);
+        }
+    });
+
+    return lines.join('\n').trim();
+}
+
 function addMessageToUI(role, content, animate, actions = null, systemName = null) {
     const container = document.getElementById('chatMessages');
     
-    // Centered wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'max-w-4xl mx-auto w-full';
     
@@ -376,28 +515,23 @@ function addMessageToUI(role, content, animate, actions = null, systemName = nul
         if (!content || content.trim() === "") content = "El asistente no devolvió una respuesta válida.";
         inner.innerHTML = formatAiMessage(content);
         if (actions && actions.length > 0) {
-            const actionContainer = document.createElement('div');
-            actionContainer.className = 'mt-4 flex flex-col gap-2 p-3 bg-white/5 dark:bg-white/5 border border-white/10 rounded-2xl';
-            
-            const btnConfirm = document.createElement('button');
-            btnConfirm.className = 'w-full py-2 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all';
-            btnConfirm.innerText = 'Confirmar Operación';
-            btnConfirm.onclick = () => {
-                actionContainer.remove();
-                executeAiActions(actions);
-            };
-
-            const btnCancel = document.createElement('button');
-            btnCancel.className = 'w-full py-2 bg-red-500/10 text-red-500 text-[9px] font-bold uppercase rounded-xl hover:bg-red-500/20 transition-all';
-            btnCancel.innerText = 'Cancelar';
-            btnCancel.onclick = () => {
-                actionContainer.remove();
-                addMessageToUI('ai', '❌ Operación cancelada.', true);
-            };
-
-            actionContainer.appendChild(btnConfirm);
-            actionContainer.appendChild(btnCancel);
-            inner.appendChild(actionContainer);
+            const actionBox = document.createElement('div');
+            actionBox.className = 'mt-4 p-4 rounded-2xl bg-gray-50/60 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700';
+            const title = document.createElement('div');
+            title.className = 'text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2';
+            title.innerText = 'Vista previa (antes de ejecutar)';
+            const list = document.createElement('div');
+            list.className = 'text-xs text-gray-700 dark:text-gray-200 whitespace-pre-line leading-relaxed';
+            const preview = buildHumanPreviewFromActions(actions);
+            list.innerText = preview || 'Se ejecutarán cambios en el sistema.';
+            const btn = document.createElement('button');
+            btn.className = 'mt-3 w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all';
+            btn.innerText = 'Validar permisos y ejecutar';
+            btn.onclick = () => openAiCrudModal(actions);
+            actionBox.appendChild(title);
+            actionBox.appendChild(list);
+            actionBox.appendChild(btn);
+            inner.appendChild(actionBox);
         }
     }
     else inner.innerText = content;
@@ -474,8 +608,38 @@ function closeConfirmModal(result) {
     if (window.confirmCallback) window.confirmCallback(result);
 }
 
+let pendingAiActions = null;
+
+function openAiCrudModal(actions) {
+    pendingAiActions = actions;
+    const modal = document.getElementById('aiCrudModal');
+    const summary = document.getElementById('aiCrudSummary');
+    if (!modal || !summary) return;
+    const lines = (actions || []).map((a) => {
+        const name = a.action || a.type || 'acción';
+        const payload = a.payload || {};
+        const hint = payload.name || payload.tableName || payload.tableId || payload.systemId || '';
+        return `• ${name}${hint ? ` (${hint})` : ''}`;
+    });
+    summary.innerText = lines.join('\n') || '—';
+    modal.classList.remove('hidden');
+}
+
+function closeAiCrudModal(confirmed) {
+    const modal = document.getElementById('aiCrudModal');
+    if (modal) modal.classList.add('hidden');
+    if (confirmed && pendingAiActions) {
+        const actions = pendingAiActions;
+        pendingAiActions = null;
+        executeAiActions(actions);
+    } else {
+        pendingAiActions = null;
+        if (confirmed === false) addMessageToUI('ai', 'Operación cancelada.', true);
+    }
+}
+
 async function executeAiActions(actions) {
-    addMessageToUI('ai', '⚙️ Ejecutando acciones en la base de datos...', true);
+    addMessageToUI('ai', 'Ejecutando acciones...', true);
     const typingId = addTypingIndicator();
     try {
         const res = await fetch('/chatbot/execute/', {
@@ -485,11 +649,28 @@ async function executeAiActions(actions) {
         });
         removeTypingIndicator(typingId);
         const data = await res.json();
-        if (res.ok) addMessageToUI('ai', '✅ Acciones completadas exitosamente.', true);
-        else addMessageToUI('ai', '❌ Error: ' + (data.error || 'Error desconocido'), true);
+        if (!res.ok) {
+            addMessageToUI('ai', 'Error: ' + (data.error || 'Error desconocido'), true);
+            return;
+        }
+
+        const results = (data && data.results) ? data.results : [];
+        const okCount = results.filter(r => r.ok).length;
+        const errCount = results.length - okCount;
+
+        let msg = `Resultado: ${okCount} OK`;
+        if (errCount > 0) msg += `, ${errCount} con error`;
+
+        const links = results.flatMap(r => (r.links || [])).filter(l => l && l.url && l.label).slice(0, 8);
+
+        if (links.length > 0) {
+            msg += '\n\n### Abrir cambios\n' + links.map(l => `- ${l.label}: ${l.url}`).join('\n');
+        }
+
+        addMessageToUI('ai', msg, true);
     } catch (e) {
         removeTypingIndicator(typingId);
-        addMessageToUI('ai', '❌ Error de conexión.', true);
+        addMessageToUI('ai', 'Error de conexión.', true);
     }
 }
 
@@ -521,4 +702,73 @@ function initVoice() {
     btnVoice.onclick = () => {
         recognition.start();
     };
+}
+
+let aiSettingsCache = null;
+
+function openAiSettings() {
+    const modal = document.getElementById('aiSettingsModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    loadAiSettings();
+}
+
+function closeAiSettings() {
+    const modal = document.getElementById('aiSettingsModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+async function loadAiSettings() {
+    try {
+        const res = await fetch('/chatbot/settings/', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        aiSettingsCache = data.config || {};
+        renderAiSettings();
+    } catch (e) {
+        console.error('Error loading AI settings', e);
+    }
+}
+
+function renderAiSettings() {
+    const enabledLabel = document.getElementById('aiEnabledLabel');
+    const modelInput = document.getElementById('aiModelInput');
+    if (!enabledLabel || !modelInput) return;
+
+    const enabled = !!aiSettingsCache?.enabled;
+    enabledLabel.innerText = enabled ? 'IA conectada (habilitada)' : 'IA desconectada (deshabilitada)';
+    modelInput.value = aiSettingsCache?.model || 'qwen3.5:cloud';
+}
+
+async function toggleAiEnabled() {
+    const enabled = !(!!aiSettingsCache?.enabled);
+    await saveAiSettings({ enabled });
+}
+
+async function saveAiSettings(extra = null) {
+    const modelInput = document.getElementById('aiModelInput');
+    const payload = {
+        model: modelInput ? modelInput.value : (aiSettingsCache?.model || 'qwen3.5:cloud'),
+        enabled: aiSettingsCache?.enabled ?? true,
+        ...(extra || {}),
+    };
+
+    try {
+        const res = await fetch('/chatbot/settings/', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        aiSettingsCache = data.config || payload;
+        renderAiSettings();
+        checkAiStatus();
+    } catch (e) {
+        console.error('Error saving AI settings', e);
+    }
 }

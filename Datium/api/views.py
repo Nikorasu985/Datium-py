@@ -269,6 +269,8 @@ def systems_detail_view(request, pk):
         log_action(user, s, 'EDITAR_SISTEMA', f'Sistema "{s.name}" editado')
         return Response(serialize_system(s))
     else:
+        name = s.name
+        log_action(user, s, 'ELIMINAR_SISTEMA', f'Sistema "{name}" eliminado')
         s.delete()
         return Response({'ok': True})
 

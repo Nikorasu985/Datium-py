@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
+from api.models import System, User
+
+
+@dataclass(frozen=True)
+class PermissionResult:
+    allowed: bool
+    reason: Optional[str] = None
+
+
+def get_current_user(request) -> Optional[User]:
+    uid = None
+    try:
+        uid = request.session.get("user_id")
+    except Exception:
+        try:
+            uid = request._request.session.get("user_id")
+        except Exception:
+            uid = None
+
+    if not uid:
+        return None
+    try:
+        return User.objects.get(id=uid)
+    except User.DoesNotExist:
+        return None
+
+
+def ensure_authenticated(request) -> Tuple[Optional[User], PermissionResult]:
+    user = get_current_user(request)
+    if not user:
+        return None, PermissionResult(False, "No autenticado")
+    return user, PermissionResult(True)
+
+
+def ensure_system_access(user: User, system_id: Optional[int]) -> PermissionResult:
+    if system_id is None:
+        return PermissionResult(True)
+    exists = System.objects.filter(id=system_id, owner=user).exists()
+    if not exists:
+        return PermissionResult(False, "No tienes permiso para acceder a este sistema.")
+    return PermissionResult(True)
+
+
+def ensure_ai_plan_access(user: User) -> PermissionResult:
+    plan_id = getattr(user, "plan_id", None)
+    if plan_id in (None, 1):
+        return PermissionResult(
+            False,
+            "Tu plan actual no incluye Datium AI. Sube a Pro o Empresarial para usar el asistente.",
+        )
+    return PermissionResult(True)
+
