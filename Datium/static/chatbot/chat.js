@@ -155,10 +155,10 @@ async function checkAiStatus() {
             const data = await res.json();
             if (data.status === 'ONLINE') {
                 statusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
-                statusText.innerText = `Online: ${data.model}`;
+                statusText.innerText = 'IA lista';
             } else {
                 statusDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
-                statusText.innerText = `Offline: ${data.model}`;
+                statusText.innerText = 'IA no disponible';
             }
         }
     } catch (e) {
@@ -740,8 +740,8 @@ function renderAiSettings() {
     if (!enabledLabel || !modelInput) return;
 
     const enabled = !!aiSettingsCache?.enabled;
-    enabledLabel.innerText = enabled ? 'IA conectada (habilitada)' : 'IA desconectada (deshabilitada)';
-    modelInput.value = aiSettingsCache?.model || 'qwen3.5:cloud';
+    enabledLabel.innerText = enabled ? 'Asistente activo con permisos del usuario' : 'Asistente pausado';
+    modelInput.value = aiSettingsCache?.model || 'datium-openclaw';
 }
 
 async function toggleAiEnabled() {
@@ -764,6 +764,15 @@ async function saveAiSettings(extra = null) {
             body: JSON.stringify(payload),
         });
         if (!res.ok) return;
+        const data = await res.json();
+        aiSettingsCache = data.config || payload;
+        renderAiSettings();
+        checkAiStatus();
+    } catch (e) {
+        console.error('Error saving AI settings', e);
+    }
+}
+.ok) return;
         const data = await res.json();
         aiSettingsCache = data.config || payload;
         renderAiSettings();

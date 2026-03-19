@@ -47,11 +47,5 @@ def ensure_system_access(user: User, system_id: Optional[int]) -> PermissionResu
 
 
 def ensure_ai_plan_access(user: User) -> PermissionResult:
-    plan_id = getattr(user, "plan_id", None)
-    if plan_id in (None, 1):
-        return PermissionResult(
-            False,
-            "Tu plan actual no incluye Datium AI. Sube a Pro o Empresarial para usar el asistente.",
-        )
     return PermissionResult(True)
 
