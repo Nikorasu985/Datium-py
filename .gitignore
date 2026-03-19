@@ -7,6 +7,15 @@ __pycache__/
 
 # variables de entorno
 .env
+.env.*
+!.env.example
+
+# bases locales y artefactos temporales
+*.sqlite3
+*.log
+out.html
+schema_dump.txt
+inspect_chatbot_db.py
 
 # archivos de sistema
 .DS_Store

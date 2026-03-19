@@ -79,13 +79,18 @@ WSGI_APPLICATION = 'Datium.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'datium',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': os.getenv('MYSQL_DATABASE', 'datium'),
+        'USER': os.getenv('MYSQL_USER', 'root'),
+        'PASSWORD': os.getenv('MYSQL_PASSWORD', ''),
+        'HOST': os.getenv('MYSQL_HOST', '127.0.0.1'),
+        'PORT': os.getenv('MYSQL_PORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
     }
 }
+
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 
 # Password validation

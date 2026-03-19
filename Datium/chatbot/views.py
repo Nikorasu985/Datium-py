@@ -419,31 +419,40 @@ def openclaw_bridge_view(request):
         or ""
     ).strip()
 
-    if not configured_secret:
-        return JsonResponse({"error": "Bridge no configurado. Define DATIUM_OPENCLAW_SECRET."}, status=503)
-    if provided_secret != configured_secret:
-        return JsonResponse({"error": "No autorizado"}, status=401)
-
-    user = None
-    user_id = request.data.get("user_id")
-    email = (request.data.get("email") or "").strip().lower()
-
-    if user_id not in (None, "", "null", "None"):
-        try:
-            user = User.objects.filter(id=int(user_id)).first()
-        except Exception:
-            user = None
-    if user is None and email:
-        user = User.objects.filter(email__iexact=email).first()
-    if user is None:
-        return JsonResponse({"error": "Usuario no encontrado"}, status=404)
-
     raw_request = getattr(request, "_request", request)
-    raw_request.session["user_id"] = user.id
+    user = None
+
     try:
-        raw_request.session.save()
+        session_uid = raw_request.session.get("user_id")
     except Exception:
-        pass
+        session_uid = None
+
+    if session_uid:
+        user = User.objects.filter(id=session_uid).first()
+    else:
+        if not configured_secret:
+            return JsonResponse({"error": "Bridge no configurado. Define DATIUM_OPENCLAW_SECRET."}, status=503)
+        if provided_secret != configured_secret:
+            return JsonResponse({"error": "No autorizado"}, status=401)
+
+        user_id = request.data.get("user_id")
+        email = (request.data.get("email") or "").strip().lower()
+
+        if user_id not in (None, "", "null", "None"):
+            try:
+                user = User.objects.filter(id=int(user_id)).first()
+            except Exception:
+                user = None
+        if user is None and email:
+            user = User.objects.filter(email__iexact=email).first()
+        if user is None:
+            return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+
+        raw_request.session["user_id"] = user.id
+        try:
+            raw_request.session.save()
+        except Exception:
+            pass
 
     system_id = request.data.get("system_id")
     if system_id not in (None, "", "null", "None"):
