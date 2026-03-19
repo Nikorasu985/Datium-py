@@ -13,4 +13,5 @@ urlpatterns = [
     path('history/clear/', views.chat_view, name='clear_history_global'),
     path('history/<int:system_id>/clear/', views.chat_view, name='clear_history'),
     path('settings/', views.ai_settings_view, name='ai_settings'),
+    path('openclaw-bridge/', views.openclaw_bridge_view, name='openclaw_bridge'),
 ]

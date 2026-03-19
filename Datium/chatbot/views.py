@@ -1,4 +1,5 @@
 import json
+import os
 
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
@@ -16,7 +17,7 @@ from .settings_panel import ai_settings_view
 from .system_context import get_active_system_id_from_request
 from .action_router import route_action
 from .models import ChatConversation, ChatMessage
-from api.models import AuditLog, System, SystemRecord, SystemTable
+from api.models import AuditLog, System, SystemRecord, SystemTable, User
 
 
 def _structured_response(*, title: str, resumen: str, datos_lines: list[str], siguientes: list[str]) -> str:
@@ -406,3 +407,75 @@ def api_message_view(request):
         return JsonResponse({"reply": payload.get("content", ""), "actions": payload.get("actions", [])})
     except Exception:
         return JsonResponse({"reply": "", "actions": []}, status=200)
+
+
+@api_view(["POST"])
+def openclaw_bridge_view(request):
+    configured_secret = os.getenv("DATIUM_OPENCLAW_SECRET", "").strip()
+    provided_secret = (
+        request.headers.get("X-OpenClaw-Secret")
+        or request.headers.get("X-Datium-Secret")
+        or request.data.get("secret")
+        or ""
+    ).strip()
+
+    if not configured_secret:
+        return JsonResponse({"error": "Bridge no configurado. Define DATIUM_OPENCLAW_SECRET."}, status=503)
+    if provided_secret != configured_secret:
+        return JsonResponse({"error": "No autorizado"}, status=401)
+
+    user = None
+    user_id = request.data.get("user_id")
+    email = (request.data.get("email") or "").strip().lower()
+
+    if user_id not in (None, "", "null", "None"):
+        try:
+            user = User.objects.filter(id=int(user_id)).first()
+        except Exception:
+            user = None
+    if user is None and email:
+        user = User.objects.filter(email__iexact=email).first()
+    if user is None:
+        return JsonResponse({"error": "Usuario no encontrado"}, status=404)
+
+    raw_request = getattr(request, "_request", request)
+    raw_request.session["user_id"] = user.id
+    try:
+        raw_request.session.save()
+    except Exception:
+        pass
+
+    system_id = request.data.get("system_id")
+    if system_id not in (None, "", "null", "None"):
+        try:
+            system_id = int(system_id)
+        except Exception:
+            return JsonResponse({"error": "system_id inválido"}, status=400)
+    else:
+        system_id = None
+
+    if system_id is not None and not System.objects.filter(id=system_id, owner=user).exists():
+        return JsonResponse({"error": "El usuario no tiene acceso a ese sistema"}, status=403)
+
+    response = chat_view(raw_request, system_id=system_id)
+    try:
+        payload = json.loads(response.content.decode("utf-8"))
+    except Exception:
+        payload = {}
+
+    if response.status_code >= 400:
+        return JsonResponse(payload or {"error": "Error del chatbot"}, status=response.status_code)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "reply": payload.get("content", ""),
+            "actions": payload.get("actions", []),
+            "conversation": payload.get("conversation", {}),
+            "confirmation_required": bool(payload.get("confirmation_required", False)),
+            "summary": payload.get("summary", ""),
+            "user": {"id": user.id, "email": user.email, "name": user.name},
+            "system_id": system_id,
+        },
+        status=response.status_code or 200,
+    )
