@@ -112,7 +112,7 @@
                         Auditoría
                     </a>
                     <a href="chat.html"
-                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-sm font-medium transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
                         <span class="material-symbols-outlined">forum</span>
                         Asistente IA
                     </a>
@@ -195,6 +195,12 @@
                                 Registrar
                             </button>
 
+                            <button onclick="openImportModal()"
+                                class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-bold hover:border-primary/50 hover:text-primary transition-all shadow-sm text-sm whitespace-nowrap group">
+                                <span class="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">upload</span>
+                                Importar
+                            </button>
+
                             <div class="relative group">
                                 <button
                                     class="h-full flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors font-medium text-sm">
@@ -229,6 +235,25 @@
                 </div>
 
                 <div class="grid grid-cols-1 gap-6">
+                    <!-- Bulk Actions -->
+                    <div id="bulkActionMenu" class="hidden flex items-center justify-between bg-primary/5 px-6 py-4 rounded-2xl animate-fade-in border border-primary/20 backdrop-blur-md">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary shadow-xl shadow-primary/10">
+                                <span class="material-symbols-outlined">check_circle</span>
+                            </div>
+                            <div>
+                                <h4 id="selectedCountText" class="text-sm font-black text-primary uppercase tracking-tight">0 Seleccionados</h4>
+                                <p class="text-[9px] text-primary/60 font-bold uppercase tracking-wider">Acciones disponibles para registros</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="bulkDelete()" class="px-5 py-2.5 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 active:scale-95 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                                Eliminar Selección
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="space-y-6">
                         <div
                             class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
@@ -320,10 +345,57 @@
     <script src="{% static 'js/auth.js' %}"></script>
     <script src="{% static 'js/app.js' %}"></script>
     <script src="{% static 'js/table.js' %}"></script>
+    <script src="{% static 'js/common_ui.js' %}"></script>
 
     <script>
 
     </script>
+    <!-- Import Modal -->
+    <div id="importModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-zoom-in">
+            <div class="p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-2xl font-black text-gray-900 dark:text-white italic">Importar Registros</h3>
+                    <button onclick="closeImportModal()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="relative group">
+                        <input type="file" id="importFile" accept=".json,.csv" class="hidden" onchange="handleImportFile(this)">
+                        <div onclick="document.getElementById('importFile').click()" class="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all group">
+                            <span class="material-symbols-outlined text-4xl text-gray-300 group-hover:text-primary transition-colors mb-2">cloud_upload</span>
+                            <div class="text-xs font-black text-gray-500 uppercase tracking-widest">Suelte el archivo o haga clic aquí</div>
+                            <div class="text-[10px] text-gray-400 mt-1">Soportamos JSON y CSV (mapeo automático)</div>
+                        </div>
+                    </div>
+
+                    <div id="importPreview" class="hidden">
+                        <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-inner">
+                            <div class="flex items-center justify-between mb-2">
+                                <span id="importStats" class="text-[10px] font-black text-primary uppercase tracking-widest"></span>
+                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Vista Previa</span>
+                            </div>
+                            <div id="importPreviewRows" class="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar text-[10px] font-mono text-gray-500 break-all">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btnConfirmImport" onclick="executeImport()" disabled class="w-full py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all opacity-50 cursor-not-allowed active:scale-95">Procesar Carga Masiva</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    @keyframes zoom-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .animate-zoom-in { animation: zoom-in 0.3s ease-out forwards; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; }
+    </style>
 </body>
 
 </html>

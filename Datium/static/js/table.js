@@ -4,6 +4,7 @@ const tableId = urlParams.get('id');
 let currentSystemId = null;
 let currentFields = [];
 let allRecords = [];
+let currentPermissions = { read: true, create: false, update: false, delete: false, is_owner: false };
 const relationCache = {};
 
 function goBack() {
@@ -23,6 +24,13 @@ async function getSystemId() {
         if (res.ok) {
             const table = await res.json();
             currentSystemId = table.systemId;
+            currentPermissions = table.permissions || currentPermissions;
+            
+            // Ocultar botón de registrar si no tiene permiso
+            const registerBtn = document.getElementById('btnOpenAddRecord');
+            if (registerBtn && !currentPermissions.create) {
+                registerBtn.style.display = 'none';
+            }
 
             const sysRes = await apiFetch(`/systems/${currentSystemId}`);
             if (sysRes.ok) {
@@ -98,9 +106,12 @@ function renderTableHead() {
     const thead = document.getElementById('tableHead');
     thead.innerHTML = `
         <tr>
+            <th class="px-6 py-3 text-left">
+                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="rounded border-gray-300 text-primary focus:ring-primary">
+            </th>
             <th class="px-6 py-3 font-bold text-gray-500 dark:text-gray-400">ID</th>
             ${currentFields.map(f => `<th class="px-6 py-3 font-bold text-gray-500 dark:text-gray-400">${f.name}</th>`).join('')}
-            <th class="px-6 py-3 font-bold text-gray-500 dark:text-gray-400">Acciones</th>
+            ${currentPermissions.update || currentPermissions.delete ? '<th class="px-6 py-3 font-bold text-gray-500 dark:text-gray-400 text-right">Acciones</th>' : ''}
         </tr>
     `;
 }
@@ -113,6 +124,9 @@ function renderTableBody(records) {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = records.map(r => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+            <td class="px-6 py-4">
+                <input type="checkbox" class="record-checkbox rounded border-gray-300 text-primary focus:ring-primary" value="${r.id}" onchange="updateBulkActions()">
+            </td>
             <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">#${r.id}</td>
             ${currentFields.map(f => {
                 let val = r.fieldValues[f.name];
@@ -132,18 +146,67 @@ function renderTableBody(records) {
                 val = val === null || val === undefined ? '' : val;
                 return `<td class="px-6 py-4">${val}</td>`;
             }).join('')}
-            <td class="px-6 py-4">
-                <div class="flex gap-2">
+            ${currentPermissions.update || currentPermissions.delete ? `
+            <td class="px-6 py-4 text-right">
+                <div class="flex gap-2 justify-end">
+                    ${currentPermissions.update ? `
                     <button onclick="editRecord(${r.id})" class="text-blue-500 hover:text-blue-600 p-1 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
                         <span class="material-symbols-outlined text-lg">edit</span>
-                    </button>
+                    </button>` : ''}
+                    ${currentPermissions.delete ? `
                     <button onclick="deleteRecord(${r.id})" class="text-red-500 hover:text-red-600 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                         <span class="material-symbols-outlined text-lg">delete</span>
-                    </button>
+                    </button>` : ''}
                 </div>
-            </td>
+            </td>` : ''}
         </tr>
     `).join('');
+    updateBulkActions();
+}
+
+function toggleSelectAll(el) {
+    const checkboxes = document.querySelectorAll('.record-checkbox');
+    checkboxes.forEach(cb => cb.checked = el.checked);
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const selectedCount = document.querySelectorAll('.record-checkbox:checked').length;
+    const bulkMenu = document.getElementById('bulkActionMenu');
+    if (bulkMenu) {
+        if (selectedCount > 0) {
+            bulkMenu.classList.remove('hidden');
+            document.getElementById('selectedCountText').innerText = `${selectedCount} seleccionados`;
+        } else {
+            bulkMenu.classList.add('hidden');
+        }
+    }
+}
+
+async function bulkDelete() {
+    const checkboxes = document.querySelectorAll('.record-checkbox:checked');
+    const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    if (ids.length === 0) return;
+    
+    if (confirm(`¿Estás seguro de que deseas eliminar ${ids.length} registros seleccionados?`)) {
+        try {
+            const res = await apiFetch(`/tables/${currentTableId}/records/bulk-delete`, {
+                method: 'POST',
+                body: JSON.stringify({ ids })
+            });
+            if (res.ok) {
+                showSuccess(`${ids.length} registros eliminados correctamente`);
+                await fetchRecords(currentTableId);
+            } else {
+                const err = await res.json();
+                showError(err.error || 'Error al eliminar registros');
+            }
+        } catch (e) {
+            console.error("Bulk delete error", e);
+            showError('Error de conexión');
+        }
+    }
 }
 
 function editRecord(id) {
@@ -398,22 +461,149 @@ async function exportTable(format = 'csv') {
     try {
         const res = await apiFetch(`/tables/${tableId}/export?format=${format}`);
         if (res.ok) {
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `tabla_${tableId}.${format}`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-            showSuccess('Tabla exportada correctamente');
+            const data = await res.json();
+            if (data.status === 'success') {
+                // Convert JSON to CSV/Excel/PDF or download as JSON
+                if (format === 'json') {
+                    const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+                    downloadBlob(blob, `tabla_${tableId}.json`);
+                } else {
+                    // Fallback to direct download if backend supports it
+                    const blobRes = await fetch(`/api/tables/${tableId}/export?format=${format}`, {
+                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                    });
+                    const blob = await blobRes.blob();
+                    downloadBlob(blob, `tabla_${tableId}.${format}`);
+                }
+                showSuccess('Tabla exportada correctamente');
+            }
         } else {
             showError('Error exportando tabla (' + format + ')');
         }
     } catch (e) {
         console.error(e);
         showError('Error exportando tabla');
+    }
+}
+
+function downloadBlob(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+}
+
+function openImportModal() {
+    document.getElementById('importModal').classList.remove('hidden');
+    document.getElementById('importPreview').classList.add('hidden');
+    document.getElementById('btnConfirmImport').disabled = true;
+    document.getElementById('btnConfirmImport').classList.add('opacity-50', 'cursor-not-allowed');
+}
+function closeImportModal() {
+    document.getElementById('importModal').classList.add('hidden');
+}
+
+let pendingImportData = [];
+
+function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const content = e.target.result;
+        if (file.name.endsWith('.json')) {
+            try {
+                pendingImportData = JSON.parse(content);
+                showImportPreview();
+            } catch (err) { showError('JSON inválido'); }
+        } else if (file.name.endsWith('.csv')) {
+            pendingImportData = parseCSV(content);
+            showImportPreview();
+        }
+    };
+    reader.readAsText(file);
+}
+
+function parseCSV(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length === 0) return [];
+    
+    // Detect separator
+    const firstLine = lines[0];
+    const separator = firstLine.includes(';') && (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+    
+    const parseLine = (line) => {
+        const result = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') inQuotes = !inQuotes;
+            else if (char === separator && !inQuotes) {
+                result.push(cur.trim());
+                cur = '';
+            } else cur += char;
+        }
+        result.push(cur.trim());
+        return result;
+    };
+
+    const headers = parseLine(lines[0]).map(h => h.toLowerCase());
+    return lines.slice(1).map(line => {
+        const values = parseLine(line);
+        const obj = {};
+        headers.forEach((h, i) => {
+            if (h) obj[h] = values[i] || '';
+        });
+        return obj;
+    });
+}
+
+function showImportPreview() {
+    const preview = document.getElementById('importPreview');
+    const container = document.getElementById('importPreviewRows');
+    const stats = document.getElementById('importStats');
+    const btn = document.getElementById('btnConfirmImport');
+
+    container.innerHTML = pendingImportData.slice(0, 5).map(row => `
+        <div class="p-2 border-b border-gray-100 dark:border-gray-800 last:border-0 truncate">
+            ${JSON.stringify(row)}
+        </div>
+    `).join('');
+    
+    if (pendingImportData.length > 5) {
+        container.innerHTML += `<div class="p-2 text-center text-gray-400">... y ${pendingImportData.length - 5} más</div>`;
+    }
+
+    stats.innerText = `${pendingImportData.length} Registros detectados`;
+    preview.classList.remove('hidden');
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+}
+
+async function executeImport() {
+    showLoading('Importando datos...');
+    try {
+        const res = await apiFetch(`/tables/${tableId}/import`, {
+            method: 'POST',
+            body: JSON.stringify({ records: pendingImportData })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            showSuccess(`¡${data.imported} registros importados con éxito!`);
+            closeImportModal();
+            loadData();
+        } else {
+            const err = await res.json();
+            showError(err.error || 'Error en la importación');
+        }
+    } catch (e) {
+        showError('Error de conexión');
     }
 }
 

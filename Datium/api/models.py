@@ -1,11 +1,16 @@
 from django.db import models
+import random
 
+def generate_random_id():
+    """Generates a unique 10-digit random ID."""
+    return random.randint(1000000000, 9999999999)
 
 # =========================================
 # PLANS
 # =========================================
 
 class Plan(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     name = models.CharField(max_length=50)
     max_systems = models.IntegerField()
     max_tables_per_system = models.IntegerField(default=3)
@@ -22,6 +27,7 @@ class Plan(models.Model):
 # =========================================
 
 class User(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     name = models.CharField(max_length=100, null=True, blank=True)
     email = models.EmailField(unique=True)
     password_hash = models.TextField()
@@ -29,6 +35,7 @@ class User(models.Model):
     role = models.CharField(max_length=20, default='user')
     plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True)
     storage_used_bytes = models.BigIntegerField(default=0)
+    is_suspended = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -40,6 +47,7 @@ class User(models.Model):
 # =========================================
 
 class System(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
@@ -53,6 +61,7 @@ class System(models.Model):
 
 
 class SystemCollaborator(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     system = models.ForeignKey(System, on_delete=models.CASCADE, related_name='collaborators')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     can_read = models.BooleanField(default=True)
@@ -72,6 +81,7 @@ class SystemCollaborator(models.Model):
 # =========================================
 
 class SystemTable(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     system = models.ForeignKey(System, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
@@ -89,6 +99,7 @@ class SystemTable(models.Model):
 # =========================================
 
 class SystemField(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
 
     FIELD_TYPES = [
         ('text', 'Text'),
@@ -113,6 +124,7 @@ class SystemField(models.Model):
 
 
 class SystemFieldOption(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     field = models.ForeignKey(SystemField, on_delete=models.CASCADE)
     value = models.CharField(max_length=100)
 
@@ -125,6 +137,7 @@ class SystemFieldOption(models.Model):
 # =========================================
 
 class SystemRecord(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     table = models.ForeignKey(SystemTable, on_delete=models.CASCADE)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -136,6 +149,7 @@ class SystemRecord(models.Model):
 # =========================================
 
 class SystemRecordValue(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     record = models.ForeignKey(SystemRecord, on_delete=models.CASCADE)
     field = models.ForeignKey(SystemField, on_delete=models.CASCADE)
     value = models.TextField(null=True, blank=True)
@@ -149,6 +163,7 @@ class SystemRecordValue(models.Model):
 # =========================================
 
 class SystemRelationship(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
 
     RELATION_TYPES = [
         ('one_to_one', 'One to One'),
@@ -194,6 +209,7 @@ class SystemRelationship(models.Model):
 # =========================================
 
 class AuditLog(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     system = models.ForeignKey(System, on_delete=models.CASCADE)
     action = models.CharField(max_length=200)
@@ -203,6 +219,7 @@ class AuditLog(models.Model):
 
 
 class SecurityAudit(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
 
     SEVERITY_LEVELS = [
         ('low', 'Low'),
@@ -223,6 +240,7 @@ class SecurityAudit(models.Model):
 # =========================================
 
 class AppSetting(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     key = models.CharField(max_length=100, unique=True)
     value = models.TextField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -232,12 +250,22 @@ class AppSetting(models.Model):
 
 
 class UserReport(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
     summary = models.TextField()
     screenshot_url = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=20, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return self.title
+
+class BlockedIP(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
+    ip_address = models.CharField(max_length=50, unique=True)
+    reason = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.ip_address

@@ -108,6 +108,39 @@ function updateZoom() {
     }
 }
 
+async function downloadDictionary() {
+    if (!currentSystemId) {
+        showError("Selecciona un sistema primero");
+        return;
+    }
+    
+    try {
+        let csv = "Tabla,Campo,Tipo,Requerido,Relacionado\n";
+        for (const table of currentTables) {
+            const fRes = await apiFetch(`/tables/${table.id}/fields`);
+            const fields = fRes.ok ? await fRes.json() : [];
+            fields.forEach(f => {
+                const rel = f.relatedTableId ? `Tabla_${f.relatedTableId}` : "-";
+                csv += `"${table.name}","${f.name}","${f.type}","${f.required ? 'Sí' : 'No'}","${rel}"\n`;
+            });
+        }
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Diccionario_Datium_S${currentSystemId}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showSuccess("Diccionario descargado");
+    } catch (e) {
+        console.error(e);
+        showError("Error al generar diccionario");
+    }
+}
+
 function clearDiagram() {
     const container = document.getElementById('diagramContent');
     if (container) {
@@ -138,6 +171,7 @@ async function renderDiagram() {
             for (const table of currentTables) {
                 const fRes = await apiFetch(`/tables/${table.id}/fields`);
                 const fields = fRes.ok ? await fRes.json() : [];
+                // Remove spaces and special chars for Mermaid compatibility
                 const safeName = table.name.replace(/[^a-zA-Z0-9]/g, '_');
                 tableMap[table.id] = safeName;
                 
@@ -158,22 +192,25 @@ async function renderDiagram() {
                 definition += '    }\n';
             }
 
+            // Unir relaciones para evitar duplicados si hay FK repetidas
             relationships.forEach(rel => {
                 const fromName = tableMap[rel.from];
                 const toName = tableMap[rel.to];
                 if (fromName && toName) {
-                    definition += `    ${fromName} ||--o{ ${toName} : "${rel.label}"\n`;
+                    definition += `    ${fromName} ||--o{ ${toName} : "rel_${rel.label}"\n`;
                 }
             });
 
         } else if (currentDiagramType === 'flow') {
             definition = 'graph LR\n';
             definition += '    classDef table fill:#137fec,stroke:#fff,stroke-width:2px,color:#fff,rx:10px,ry:10px;\n';
+            definition += '    classDef entity fill:#fff,stroke:#111,stroke-width:1px,color:#111;\n';
+            
             const tableMap = {};
             currentTables.forEach(t => {
-                const safeName = t.name.replace(/[^a-zA-Z0-9_]/g, '');
-                tableMap[t.id] = safeName;
-                definition += `    T${t.id}["📚 ${t.name}"]:::table\n`;
+                const safeId = `T${t.id}`;
+                tableMap[t.id] = safeId;
+                definition += `    ${safeId}["📦 ${t.name}"]:::table\n`;
             });
             
             for (const table of currentTables) {
@@ -181,7 +218,7 @@ async function renderDiagram() {
                 const fields = fRes.ok ? await fRes.json() : [];
                 fields.forEach(f => {
                     if (f.relatedTableId && tableMap[f.relatedTableId]) {
-                        definition += `    T${table.id} -- ${f.name} --> T${f.relatedTableId}\n`;
+                        definition += `    T${table.id} -- "${f.name}" --> T${f.relatedTableId}\n`;
                     }
                 });
             }
@@ -196,15 +233,9 @@ async function renderDiagram() {
                     const safeFName = f.name.replace(/[^a-zA-Z0-9]/g, '_');
                     const typeLabel = f.type.charAt(0).toUpperCase() + f.type.slice(1);
                     definition += `        +${typeLabel} ${safeFName}\n`;
-                    if (f.relatedTableId) {
-                         const relatedTable = currentTables.find(t => t.id === f.relatedTableId);
-                         if (relatedTable) {
-                             const relSafeName = relatedTable.name.replace(/[^a-zA-Z0-9]/g, '_');
-                             // Agregamos la relación fuera de la clase después
-                         }
-                    }
                 });
                 definition += `    }\n`;
+                
                 fields.forEach(f => {
                     if (f.relatedTableId) {
                         const relatedTable = currentTables.find(t => t.id === f.relatedTableId);
@@ -213,19 +244,6 @@ async function renderDiagram() {
                             definition += `    ${safeName} --|> ${relSafeName} : ${f.name}\n`;
                         }
                     }
-                });
-            }
-        } else if (currentDiagramType === 'mindmap') {
-            definition = 'mindmap\n';
-            definition += `  root((Sistema))\n`;
-            for (const table of currentTables) {
-                const safeName = table.name.replace(/[^a-zA-Z0-9 ]/g, '');
-                definition += `    ${safeName}\n`;
-                const fRes = await apiFetch(`/tables/${table.id}/fields`);
-                const fields = fRes.ok ? await fRes.json() : [];
-                fields.forEach(f => {
-                    const safeFName = f.name.replace(/[^a-zA-Z0-9 ]/g, '');
-                    definition += `      ${safeFName}\n`;
                 });
             }
         }
@@ -245,10 +263,15 @@ async function renderDataDictionary() {
     if (!wrapper) return;
 
     let html = `
-        <div class="w-full max-w-4xl mx-auto space-y-8 animate-fade-in p-4">
-            <div class="text-center mb-10">
-                <h2 class="text-2xl font-black text-primary uppercase tracking-tighter mb-2">Diccionario de Datos</h2>
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-widest leading-relaxed">Estructura detallada y definiciones técnica del sistema</p>
+        <div class="w-full max-w-5xl mx-auto space-y-12 animate-fade-in py-10 px-4">
+            <div class="text-center relative">
+                <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-40 h-40 bg-primary/20 blur-[80px] -z-10"></div>
+                <span class="inline-block px-4 py-1.5 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4">Documentación Oficial</span>
+                <h2 class="text-4xl font-black text-[#111418] dark:text-white uppercase tracking-tighter mb-4 leading-none">Diccionario de Datos</h2>
+                <div class="h-1 w-20 bg-primary mx-auto rounded-full mb-6"></div>
+                <p class="text-[11px] text-gray-500 font-bold uppercase tracking-widest leading-loose max-w-xl mx-auto">
+                    Explora la estructura técnica profunda de tu sistema, incluyendo tipos de datos, relaciones de llaves foráneas y restricciones de negocio integradas.
+                </p>
             </div>
     `;
 
@@ -257,48 +280,76 @@ async function renderDataDictionary() {
         const fields = fRes.ok ? await fRes.json() : [];
         
         html += `
-            <div class="bg-white dark:bg-gray-900 shadow-2xl rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 hover:shadow-primary/5 transition-all">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="p-3 bg-primary/10 rounded-2xl">
-                        <span class="material-symbols-outlined text-primary">analytics</span>
+            <div class="bg-white dark:bg-[#151f2b] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] rounded-[3rem] border border-gray-100 dark:border-gray-800/80 p-10 hover:border-primary/30 transition-all duration-500 overflow-hidden relative">
+                <div class="absolute top-0 right-0 p-8 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                    <span class="material-symbols-outlined text-9xl">table_chart</span>
+                </div>
+                
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div class="flex items-center gap-6">
+                        <div class="w-16 h-16 bg-gradient-to-br from-primary to-blue-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-primary/20">
+                            <span class="material-symbols-outlined text-3xl">terminal</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Tabla de Sistema</span>
+                            <h3 class="text-2xl font-black text-[#111418] dark:text-white uppercase tracking-tight leading-none mt-1">${table.name}</h3>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-lg font-black text-[#111418] dark:text-white uppercase tracking-tight">${table.name}</h3>
-                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">${table.description || 'Sin descripción técnica'}</p>
+                    <div class="bg-gray-100 dark:bg-gray-800/50 px-6 py-3 rounded-2xl">
+                        <p class="text-[10px] text-gray-400 font-black uppercase tracking-[0.1em] mb-1">Descripción de Entidad</p>
+                        <p class="text-xs text-[#111418] dark:text-gray-300 font-bold">${table.description || 'Sin comentarios registrados'}</p>
                     </div>
                 </div>
                 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-[11px]">
+                <div class="overflow-x-auto -mx-2">
+                    <table class="w-full text-left">
                         <thead>
-                            <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Campo</th>
-                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Tipo</th>
-                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Atributos</th>
-                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Relación</th>
+                            <tr class="border-b-2 border-gray-100 dark:border-gray-800/30">
+                                <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Identificador</th>
+                                <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Data Type</th>
+                                <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Properties</th>
+                                <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">References</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/50">
+                        <tbody class="divide-y divide-gray-50/50 dark:divide-gray-800/20">
         `;
 
         fields.forEach(f => {
             const attrs = [];
-            if (f.name.toLowerCase() === 'id') attrs.push('PRIMARY KEY');
-            if (f.required) attrs.push('NOT NULL');
-            if (f.type === 'number') attrs.push('NUMERIC');
+            const isPK = f.name.toLowerCase() === 'id';
+            if (isPK) attrs.push('<span class="bg-amber-400/10 text-amber-500 border border-amber-400/20 px-2 py-0.5 rounded text-[8px] font-black tracking-tighter">PRIMARY KEY</span>');
+            if (f.required) attrs.push('<span class="bg-red-400/10 text-red-500 border border-red-400/20 px-2 py-0.5 rounded text-[8px] font-black tracking-tighter">NOT NULL</span>');
             
-            const rel = f.relatedTableId ? `Refers to Table ID: ${f.relatedTableId}` : '-';
+            let relLabel = '-';
+            if (f.relatedTableId) {
+                const rt = currentTables.find(t => t.id === f.relatedTableId);
+                relLabel = `
+                    <div class="flex items-center gap-2 text-primary font-black">
+                        <span class="material-symbols-outlined text-[14px]">link</span>
+                        <span>${rt ? rt.name : `TABLE_${f.relatedTableId}`}</span>
+                    </div>
+                `;
+            }
 
             html += `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <td class="py-4 font-bold text-[#111418] dark:text-gray-200">${f.name}</td>
-                    <td class="py-4">
-                        <span class="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 font-mono text-[9px] uppercase">${f.type}</span>
+                <tr class="hover:bg-primary/[0.02] transition-colors group">
+                    <td class="py-6 px-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-1 h-4 bg-gray-200 dark:bg-gray-800 group-hover:bg-primary transition-colors"></div>
+                            <span class="font-black text-sm text-[#111418] dark:text-white">${f.name}</span>
+                        </div>
                     </td>
-                    <td class="py-4">
-                        ${attrs.map(a => `<span class="text-[9px] font-black text-gray-400 mr-2 opacity-60">${a}</span>`).join('') || '-'}
+                    <td class="py-6 px-4">
+                        <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800/50 text-[#111418] dark:text-gray-400 font-mono text-[9px] font-black uppercase rounded-lg border border-gray-200/50 dark:border-gray-700/50">${f.type}</span>
                     </td>
-                    <td class="py-4 text-primary font-bold">${rel}</td>
+                    <td class="py-6 px-4">
+                        <div class="flex flex-wrap gap-2">
+                            ${attrs.join('') || '<span class="text-gray-300 dark:text-gray-700 font-black">NULLABLE</span>'}
+                        </div>
+                    </td>
+                    <td class="py-6 px-4">
+                        <span class="text-[10px] uppercase">${relLabel}</span>
+                    </td>
                 </tr>
             `;
         });
@@ -311,7 +362,13 @@ async function renderDataDictionary() {
         `;
     }
 
-    html += `</div>`;
+    html += `
+            <div class="pt-20 text-center pb-20 opacity-30">
+                <div class="w-12 h-1 bg-gray-200 dark:bg-gray-800 mx-auto rounded-full mb-4"></div>
+                <p class="text-[10px] font-black uppercase tracking-[0.5em]">Fin de Documento</p>
+            </div>
+        </div>
+    `;
     wrapper.innerHTML = html;
 }
 

@@ -41,6 +41,7 @@ urlpatterns = [
     path('audit.html', TemplateView.as_view(template_name='audit.html')),
     path('stats.html', TemplateView.as_view(template_name='stats.html')),
     path('admin.html', TemplateView.as_view(template_name='admin.html')),
+    path('admin_users.html', TemplateView.as_view(template_name='admin_users.html')),
 ]
 
 if settings.DEBUG:

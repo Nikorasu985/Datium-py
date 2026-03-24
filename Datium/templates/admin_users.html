@@ -1,0 +1,276 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - Admin Datium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .bg-mesh {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 102, 255, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(0, 102, 255, 0.05) 0px, transparent 50%);
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        #admin-chatbot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-mesh min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">Administración de Usuarios</h1>
+                <p class="text-slate-500">Gestión de suspensiones, bloqueos de IP y seguridad global.</p>
+            </div>
+            <div class="flex gap-4">
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    Dashboard
+                </a>
+                <button onclick="toggleChatbot()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
+                    <span class="material-symbols-outlined">smart_toy</span>
+                    Asistente IA
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="glass rounded-3xl p-6 shadow-sm">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-500">group</span>
+                            Usuarios Registrados
+                        </h2>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2.5 text-slate-400 material-symbols-outlined text-sm">search</span>
+                            <input type="text" id="userSearch" placeholder="Buscar usuario..." class="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 transition-all">
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-100">
+                                    <th class="pb-4 font-semibold">Usuario</th>
+                                    <th class="pb-4 font-semibold">Rol</th>
+                                    <th class="pb-4 font-semibold">Estado</th>
+                                    <th class="pb-4 font-semibold text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="glass rounded-3xl p-6 shadow-sm">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-red-500">block</span>
+                        IPs Bloqueadas
+                    </h2>
+                    <div class="space-y-4" id="blockedIpList"></div>
+                    <div class="mt-6">
+                        <button onclick="openBlockIpModal()" class="w-full py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all font-semibold flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm">add</span>
+                            Bloquear nueva IP
+                        </button>
+                    </div>
+                </div>
+                <div class="glass rounded-3xl p-6 shadow-sm">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-500">flag</span>
+                        Reportes Recientes
+                    </h2>
+                    <div id="latestReports" class="space-y-3">
+                        <p class="text-slate-400 text-sm">Cargando...</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <a href="{% url 'admin_reports' %}" class="text-blue-600 text-sm font-semibold hover:underline">Ver todos los reportes →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="blockIpModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-3xl p-8 shadow-2xl">
+            <h3 class="text-2xl font-bold text-slate-900 mb-4">Bloquear Dirección IP</h3>
+            <p class="text-slate-500 mb-6">El acceso desde esta IP será restringido inmediatamente.</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Dirección IP</label>
+                    <input type="text" id="newIpInput" placeholder="Ej: 192.168.1.1" class="w-full px-4 py-3 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-red-500 transition-all">
+                </div>
+                <div class="flex gap-4 mt-8">
+                    <button onclick="closeBlockIpModal()" class="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 transition-all font-semibold">Cancelar</button>
+                    <button onclick="submitBlockIp()" class="flex-1 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-semibold">Bloquear IP</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-chatbot" class="glass rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-blue-500/30">
+        <div class="bg-blue-600 p-4 text-white flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined">smart_toy</span>
+                <span class="font-bold">Asistente IA Administrativo</span>
+            </div>
+            <button onclick="toggleChatbot()" class="material-symbols-outlined hover:bg-blue-500 rounded-full p-1 transition-colors">close</button>
+        </div>
+        <iframe src="/chat?mini=true" class="flex-1 w-full border-none"></iframe>
+    </div>
+
+    <script>
+        async function apiFetch(url, opts = {}) {
+            const res = await fetch(url, {
+                ...opts,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                    ...opts.headers
+                }
+            });
+            return res;
+        }
+
+        async function loadUsers() {
+            const res = await apiFetch('/api/admin/users');
+            if (res.ok) {
+                const users = await res.json();
+                renderUsers(users);
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = users.map(u => `
+                <tr class="group hover:bg-slate-50/50 transition-colors">
+                    <td class="py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold uppercase">
+                                \${u.name ? u.name[0] : u.email[0]}
+                            </div>
+                            <div>
+                                <div class="font-semibold text-slate-800">\${u.name || 'Sin nombre'}</div>
+                                <div class="text-xs text-slate-500">\${u.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4 text-sm font-medium text-slate-600 capitalize">\${u.role}</td>
+                    <td class="py-4">
+                        \${u.is_suspended ? 
+                            '<span class="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-1 rounded text-xs font-bold w-fit">SUSPENDIDO</span>' : 
+                            '<span class="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-bold w-fit">ACTIVO</span>'}
+                    </td>
+                    <td class="py-4 text-right">
+                        <div class="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="toggleUserSuspension(\${u.id}, \${u.is_suspended})" class="\${u.is_suspended ? 'text-emerald-500 hover:bg-emerald-50' : 'text-red-500 hover:bg-red-50'} p-2 rounded-lg" title="\${u.is_suspended ? 'Activar' : 'Suspender'}">
+                                <span class="material-symbols-outlined">\${u.is_suspended ? 'check_circle' : 'block'}</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleUserSuspension(userId, currentStatus) {
+            const action = currentStatus ? 'activate' : 'suspend';
+            const res = await apiFetch(`/api/admin/users/${userId}/action`, {
+                method: 'POST',
+                body: JSON.stringify({ action })
+            });
+            if (res.ok) loadUsers();
+        }
+
+        async function loadIps() {
+            const res = await apiFetch('/api/admin/blocked-ips');
+            if (res.ok) {
+                const ips = await res.json();
+                renderIps(ips);
+            }
+        }
+
+        function renderIps(ips) {
+            const list = document.getElementById('blockedIpList');
+            if (ips.length === 0) {
+                list.innerHTML = '<p class="text-slate-400 text-sm text-center py-4 italic">No hay IPs bloqueadas</p>';
+                return;
+            }
+            list.innerHTML = ips.map(i => `
+                <div class="flex justify-between items-center p-3 bg-red-50/50 rounded-xl border border-red-100">
+                    <div>
+                        <div class="font-mono text-xs font-bold text-red-700">\${i.ip}</div>
+                        <div class="text-[10px] text-slate-500">\${i.reason || 'Sin motivo'}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function submitBlockIp() {
+            const ip = document.getElementById('newIpInput').value;
+            const res = await apiFetch('/api/admin/users/0/action', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'block_ip', ip })
+            });
+            if (res.ok) {
+                closeBlockIpModal();
+                loadIps();
+            }
+        }
+
+        async function loadReports() {
+            const res = await apiFetch('/api/admin/reports');
+            if (res.ok) {
+                const reports = await res.json();
+                renderReports(reports.slice(0, 3));
+            }
+        }
+
+        function renderReports(reports) {
+            const list = document.getElementById('latestReports');
+            list.innerHTML = reports.map(r => `
+                <div class="p-3 bg-white border border-slate-100 rounded-xl">
+                    <div class="font-semibold text-xs text-slate-800 truncate">\${r.title}</div>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 uppercase font-bold">\${r.status}</span>
+                        <a href="mailto:\${r.userEmail}?subject=Respuesta a tu reporte: \${r.title}" class="text-[10px] text-blue-600 font-bold flex items-center gap-1 hover:underline">
+                            <span class="material-symbols-outlined text-xs">mail</span>
+                            RESPONDER
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleChatbot() {
+            const cb = document.getElementById('admin-chatbot');
+            cb.style.display = cb.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        loadUsers(); loadIps(); loadReports();
+    </script>
+</body>
+</html>

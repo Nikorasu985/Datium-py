@@ -293,20 +293,20 @@ function goToCreateTable() {
 }
 
 async function deleteTable(id) {
-    showConfirm('¿Eliminar tabla? Se perderán todos los datos.', () => {
+    showConfirm('¿Eliminar tabla? Se perderán todos los datos permanentemente.', () => {
         promptPassword(async () => {
             showLoading('Eliminando tabla...');
             try {
                 const res = await apiFetch(`/systems/${systemId}/tables/${id}`, { method: 'DELETE' });
                 if (res.ok) {
-                    allTables = allTables.filter(t => t.id !== id);
-                    filterTables();
-                    showSuccess('Tabla eliminada');
+                    await loadTables(); 
+                    showSuccess('Tabla eliminada correctamente');
                 } else {
-                    showError('Error eliminando tabla');
+                    showError('No se pudo eliminar la tabla');
                 }
             } catch (e) {
-                showError('Error de conexión');
+                console.error(e);
+                showError('Error de red al eliminar');
             }
         });
     });
