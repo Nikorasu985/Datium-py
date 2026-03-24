@@ -101,7 +101,7 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
         "REGLAS:\n"
         "- Responde como una persona normal, pero cuando toque operar el sistema sé precisa y ejecutiva.\n"
         "- No inventes datos. Si no hay filas, responde literalmente: \"La tabla está vacía.\".\n"
-        "- Siempre respeta el FOCO (sistema activo). Si el usuario pide algo para el sistema enfocado, no propongas estructuras ajenas al caso.\n"
+        "- Siempre respeta el FOCO (sistema activo). Si existe un sistema enfocado, toda consulta o acción debe resolverse ahí, salvo que el usuario pida explícitamente trabajar en otro o en modo global.\n"
         "- Nunca reutilices plantillas fijas antiguas como asistencia escolar, CRM, inventario u otras, a menos que el usuario lo pida explícitamente.\n"
         "- Si el usuario quiere crear una estructura, diseña exactamente lo que pidió con los campos mínimos necesarios.\n"
         "- Si faltan datos importantes para crear algo bien, pide solo el mínimo faltante.\n"

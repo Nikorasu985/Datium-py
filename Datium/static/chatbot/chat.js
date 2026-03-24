@@ -56,10 +56,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function conversationStorageKey() {
-    return 'datium_chat_conversation_global';
+    const sysId = currentSystemId || document.getElementById('systemSelector')?.value || 'global';
+    return `datium_chat_conversation_${sysId}`;
+}
+
+function currentConversationTitle() {
+    const selector = document.getElementById('systemSelector');
+    if (selector && selector.value) {
+        const name = selector.options[selector.selectedIndex]?.text || 'Sistema';
+        return `${name} · IA`;
+    }
+    return 'Chat Global';
 }
 
 async function initConversations() {
+    currentConversationId = null;
     const stored = localStorage.getItem(conversationStorageKey());
     if (stored) currentConversationId = stored;
     if (!currentConversationId) {
@@ -71,10 +82,12 @@ async function initConversations() {
 
 async function createNewConversation(silent = false) {
     try {
-        const res = await fetch('/chatbot/conversations/', {
+        const payload = { title: currentConversationTitle() };
+        if (currentSystemId) payload.system_id = currentSystemId;
+        const res = await fetch('/chatbot/conversations/' + (currentSystemId ? `?system_id=${encodeURIComponent(currentSystemId)}` : ''), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-            body: JSON.stringify({ title: 'Chat Global' })
+            body: JSON.stringify(payload)
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -96,12 +109,14 @@ async function loadSystems() {
             const systems = await res.json();
             const selector = document.getElementById('systemSelector');
             if (selector) {
+                selector.innerHTML = '<option value="">Global</option>';
                 systems.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.id;
                     opt.innerText = s.name;
                     selector.appendChild(opt);
                 });
+                if (currentSystemId) selector.value = String(currentSystemId);
             }
         }
     } catch (e) {
@@ -110,70 +125,63 @@ async function loadSystems() {
 }
 
 async function checkAiStatus() {
-    const statusDot = document.getElementById('aiStatusDot');
-    const statusText = document.getElementById('aiStatusText');
-    if (!statusDot || !statusText) return;
     try {
-        const res = await fetch('/chatbot/status/', { 
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } 
+        await fetch('/chatbot/status/', {
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
         });
-        if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'ONLINE') {
-                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
-                statusText.innerText = 'IA lista';
-            } else {
-                statusDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
-                statusText.innerText = 'IA no disponible';
-            }
-        }
     } catch (e) {
-        if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-red-500';
-        if (statusText) statusText.innerText = 'Error de conexión';
+        console.warn('AI status check failed', e);
     }
 }
 
 function renderWelcomeState() {
     const container = document.getElementById('chatMessages');
     if (!container) return;
+    const selector = document.getElementById('systemSelector');
+    const focusedName = (selector && selector.value) ? selector.options[selector.selectedIndex]?.text : null;
+    const subtitle = focusedName
+        ? `Estoy centrada en ${focusedName}. Todo lo que cree, consulte o modifique se intentará resolver dentro de ese sistema.`
+        : 'Puedo ayudarte a crear, editar, consultar y ordenar sistemas con lenguaje natural, cuidando permisos, auditoría y cambios sensibles.';
     container.innerHTML = `
-        <div class="max-w-4xl mx-auto w-full">
-            <div class="rounded-[2rem] border border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/40 backdrop-blur-xl shadow-sm p-6 md:p-8">
-                <div class="flex items-start gap-4">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
-                        <span class="material-symbols-outlined text-3xl">auto_awesome</span>
+        <div class="max-w-5xl mx-auto w-full space-y-5">
+            <div class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-[#1a2634]">
+                    <h3 class="font-bold text-[#111418] dark:text-white text-base flex items-center gap-2">
+                        <span class="material-symbols-outlined text-blue-500">forum</span>
+                        Asistente IA
+                    </h3>
+                    <div class="text-[10px] font-bold ${focusedName ? 'text-emerald-500 bg-emerald-500/10' : 'text-gray-500 bg-gray-500/10'} px-2 py-1 rounded-md">
+                        ${focusedName ? `FOCO · ${focusedName}` : 'MODO GLOBAL'}
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <h2 class="text-2xl md:text-3xl font-black text-[#111418] dark:text-white">Datium AI</h2>
-                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.18em] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40">Lista ✨</span>
+                </div>
+                <div class="p-6 md:p-7">
+                    <div class="flex items-start gap-4 mb-6">
+                        <div class="p-3 bg-blue-500/10 rounded-xl text-blue-500">
+                            <span class="material-symbols-outlined text-2xl">auto_awesome</span>
                         </div>
-                        <p class="mt-2 text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed">Puedo ayudarte a crear, editar, consultar y ordenar tu sistema con lenguaje natural. Tengo el mismo acceso operativo que tu sesión actual, pero con validaciones antes de tocar cosas sensibles. 🛡️</p>
+                        <div>
+                            <div class="text-2xl font-black text-[#111418] dark:text-white">Hola. Soy tu IA operativa ✨</div>
+                            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl">${subtitle}</p>
+                        </div>
                     </div>
-                </div>
-                <div class="grid sm:grid-cols-2 gap-3 mt-6">
-                    <button onclick="setSuggestion('Crea una tabla de asistentes para un evento con nombre, apellido y asistió')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
-                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">Crear estructura</div>
-                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Tabla para asistencia de evento ✅</div>
-                    </button>
-                    <button onclick="setSuggestion('Muéstrame las tablas del sistema actual y dime cuál conviene mejorar')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
-                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">Analizar</div>
-                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Revisar tablas, campos y oportunidades 📊</div>
-                    </button>
-                    <button onclick="setSuggestion('Quiero registrar asistentes con nombre, apellido, empresa y estado de ingreso')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
-                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">CRUD guiado</div>
-                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Diseñar tablas y campos exactos 🧩</div>
-                    </button>
-                    <button onclick="setSuggestion('Muéstrame los últimos cambios importantes y qué debería auditar')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
-                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">Auditoría</div>
-                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Cambios recientes, riesgos y trazabilidad 🔍</div>
-                    </button>
-                </div>
-                <div class="mt-5 flex flex-wrap gap-2 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Aceptar / Cancelar</span>
-                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Undo después de ejecutar</span>
-                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Contraseña para eliminar</span>
-                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Auditoría integrada</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="setSuggestion('Crea una tabla de asistentes para un evento con nombre, apellido y asistió')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div class="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">table_chart</span></div>
+                            <div><div class="text-blue-400 font-bold text-sm">Crear tabla</div><div class="text-gray-500 text-xs">Diseño exacto según lo que pidas</div></div>
+                        </button>
+                        <button onclick="setSuggestion('Crea registros de ejemplo para el sistema actual y dime qué hace falta completar')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-emerald-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div class="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">playlist_add</span></div>
+                            <div><div class="text-emerald-400 font-bold text-sm">Crear registros</div><div class="text-gray-500 text-xs">Insertar datos dentro del sistema enfocado</div></div>
+                        </button>
+                        <button onclick="setSuggestion('Muéstrame las tablas del sistema actual y dime cuál conviene mejorar')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div class="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">analytics</span></div>
+                            <div><div class="text-purple-400 font-bold text-sm">Analizar estructura</div><div class="text-gray-500 text-xs">Tablas, campos, relaciones y mejoras</div></div>
+                        </button>
+                        <button onclick="setSuggestion('Muéstrame los últimos cambios importantes y qué debería auditar')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-orange-500/50 transition-all text-left flex items-center gap-4 group">
+                            <div class="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">history</span></div>
+                            <div><div class="text-orange-400 font-bold text-sm">Revisar auditoría</div><div class="text-gray-500 text-xs">Cambios sensibles, trazabilidad y riesgos</div></div>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -198,6 +206,8 @@ async function loadChatHistory() {
             } else {
                 renderWelcomeState();
             }
+            const selector = document.getElementById('systemSelector');
+            if (selector && currentSystemId) selector.value = String(currentSystemId);
         }
     } catch (e) {
         console.error("Error loading history", e);
@@ -751,29 +761,59 @@ async function executeUndoActions() {
 function initVoice() {
     const btnVoice = document.getElementById('btnVoice');
     const input = document.getElementById('chatInput');
-    if (!btnVoice || (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))) {
+    if (!btnVoice || !input || (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))) {
         if (btnVoice) btnVoice.style.display = 'none';
         return;
     }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
+    let isRecording = false;
+
     recognition.lang = 'es-ES';
-    recognition.onstart = () => {
-        btnVoice.classList.add('text-red-500', 'animate-pulse');
-        btnVoice.querySelector('span').innerText = 'mic_active';
-        input.placeholder = 'Escuchando...';
-    };
-    recognition.onend = () => {
-        btnVoice.classList.remove('text-red-500', 'animate-pulse');
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognition.maxAlternatives = 1;
+
+    const resetVoiceUi = () => {
+        isRecording = false;
+        btnVoice.classList.remove('text-red-500', 'animate-pulse', 'bg-red-50');
+        btnVoice.classList.add('text-gray-400');
         btnVoice.querySelector('span').innerText = 'mic';
-        input.placeholder = 'Escribe un mensaje para Datium AI...';
+        input.placeholder = 'Pídeme algo como: crea una tabla de asistentes, analiza este sistema o prepara un cambio...';
     };
+
+    recognition.onstart = () => {
+        isRecording = true;
+        btnVoice.classList.remove('text-gray-400');
+        btnVoice.classList.add('text-red-500', 'animate-pulse', 'bg-red-50');
+        btnVoice.querySelector('span').innerText = 'mic_external_on';
+        input.placeholder = 'Escuchando... pulsa el micrófono otra vez para terminar';
+    };
+
     recognition.onresult = (event) => {
-        input.value = event.results[0][0].transcript;
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+        input.value = transcript.trim();
         const btnSend = document.getElementById('btnSend');
-        if (btnSend) btnSend.disabled = false;
+        if (btnSend) btnSend.disabled = !input.value.trim();
     };
+
+    recognition.onerror = () => {
+        resetVoiceUi();
+    };
+
+    recognition.onend = () => {
+        resetVoiceUi();
+    };
+
     btnVoice.onclick = () => {
+        if (isRecording) {
+            recognition.stop();
+            return;
+        }
         recognition.start();
     };
 }
