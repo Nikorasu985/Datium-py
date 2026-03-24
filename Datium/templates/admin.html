@@ -1,0 +1,161 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="dark" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Datium - Admin Panel</title>
+    <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <script>
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark text-[#111418] dark:text-gray-200 overflow-hidden">
+    <div class="flex h-screen w-full">
+        <!-- Sidebar general -->
+        <aside class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between flex-shrink-0 h-full">
+            <div>
+                <div class="p-4 flex justify-center items-center h-60">
+                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-full w-auto object-contain block dark:hidden p-2" alt="Datium">
+                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-full w-auto object-contain hidden dark:block p-2" alt="Datium">
+                </div>
+                <div class="px-6 mb-6">
+                    <button onclick="toggleTema()" class="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-600 dark:text-gray-400">
+                        <span class="material-symbols-outlined text-xl">dark_mode</span>
+                        <span>Modo Oscuro</span>
+                    </button>
+                </div>
+                <nav class="px-4 flex flex-col gap-2">
+                    <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">exit_to_app</span> Regresar a App
+                    </a>
+                    <a href="#" onclick="switchTab('reports')" class="tab-link active-tab flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded-xl text-sm font-bold transition-colors">
+                        <span class="material-symbols-outlined">bug_report</span> Gestión de Reportes
+                    </a>
+                    <a href="#" onclick="switchTab('plans')" class="tab-link flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">workspace_premium</span> Administración Planes
+                    </a>
+                    <a href="#" onclick="switchTab('policies')" class="tab-link flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">policy</span> Términos y Condiciones
+                    </a>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-800">
+                <button onclick="logout()" class="flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <span class="material-symbols-outlined">logout</span> Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark p-4 md:p-8 relative">
+            <div class="max-w-7xl mx-auto space-y-6">
+                <!-- CABECERA -->
+                <div class="bg-gradient-to-r from-red-600 to-red-900 p-8 rounded-3xl shadow-2xl flex items-center justify-between text-white relative overflow-hidden">
+                    <div class="absolute -right-20 -top-20 text-white/10 rotate-12">
+                        <span class="material-symbols-outlined" style="font-size: 300px;">admin_panel_settings</span>
+                    </div>
+                    <div class="relative z-10 flex items-center gap-4">
+                        <div class="p-4 bg-white/10 backdrop-blur-md rounded-2xl">
+                            <span class="material-symbols-outlined text-4xl">admin_panel_settings</span>
+                        </div>
+                        <div>
+                            <h1 class="text-3xl font-black tracking-tight">Panel Principal de Administración</h1>
+                            <p class="text-white/80 font-medium">Control total sobre infraestructura, clientes y métricas.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABS CONTENT -->
+                
+                <!-- REPORTES -->
+                <div id="tab-reports" class="tab-content block space-y-6">
+                    <h2 class="text-2xl font-black text-gray-900 dark:text-white">Reportes de Usuarios</h2>
+                    <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="text-xs font-black tracking-widest uppercase text-gray-400 dark:text-gray-500 border-b-2 border-gray-100 dark:border-gray-700">
+                                        <th class="p-4">Usuario</th>
+                                        <th class="p-4">Título</th>
+                                        <th class="p-4">Fecha</th>
+                                        <th class="p-4">Estado</th>
+                                        <th class="p-4 text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsTableBody" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                                    <tr><td colspan="5" class="p-6 text-center text-gray-500">Cargando reportes...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PLANES -->
+                <div id="tab-plans" class="tab-content hidden space-y-6">
+                    <h2 class="text-2xl font-black text-gray-900 dark:text-white">Editar Características de Planes</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="plansContainer">
+                        <div class="p-6 text-center text-gray-500 w-full animate-pulse col-span-3">Cargando planes...</div>
+                    </div>
+                </div>
+
+                <!-- POLÍTICAS -->
+                <div id="tab-policies" class="tab-content hidden space-y-6">
+                    <h2 class="text-2xl font-black text-gray-900 dark:text-white">Términos, Condiciones y Privacidad (HTML)</h2>
+                    <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">
+                        <textarea id="policyContentEditor" rows="20" class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white focus:border-red-500 focus:ring-0 transition-colors font-mono text-sm" placeholder="<h1>Términos y condiciones</h1><p>...</p>"></textarea>
+                        <button onclick="savePolicies()" class="px-8 py-4 w-full md:w-auto rounded-2xl bg-red-600 text-white font-black tracking-widest uppercase hover:-translate-y-1 shadow-lg shadow-red-600/20 transition-all">
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Visor de Capturas de Reportes -->
+    <div id="reportScreenshotModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] hidden flex-col items-center justify-center p-4">
+        <div class="bg-transparent w-full max-w-6xl max-h-full flex flex-col items-end">
+            <button onclick="closeReportImage()" class="mb-4 text-white hover:text-red-400 bg-black/50 rounded-full p-2 transition-colors">
+                <span class="material-symbols-outlined text-4xl">close</span>
+            </button>
+            <img id="reportScreenshotImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/20">
+            <p id="reportFullSummary" class="mt-4 p-4 bg-gray-900 text-white max-w-full rounded-xl"></p>
+        </div>
+    </div>
+
+    <script src="{% static 'js/auth.js' %}"></script>
+    <script src="{% static 'js/app.js' %}"></script>
+    <script src="{% static 'js/admin.js' %}"></script>
+</body>
+</html>

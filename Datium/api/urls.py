@@ -15,6 +15,14 @@ urlpatterns = [
     path('user/avatar', views.user_avatar_view),
     path('user/plan', views.user_plan_view),
     path('user/verify-password', views.user_verify_password_view),
+    path('user/reports', views.user_reports_view),
+
+    # Admin
+    path('admin/policies', views.admin_policies_view),
+    path('admin/reports', views.admin_reports_view),
+    path('admin/reports/<int:pk>', views.admin_report_detail_view),
+    path('admin/plans', views.admin_plans_view),
+    path('admin/plans/<int:pk>', views.admin_plan_detail_view),
 
     # Systems (estadisticas MUST be before <int:pk>)
     path('systems', views.systems_list_view),
@@ -32,6 +40,7 @@ urlpatterns = [
     path('tables/<int:pk>/fields', views.table_fields_view),
     path('tables/<int:pk>/records', views.table_records_view),
     path('tables/<int:table_pk>/records/<int:record_pk>', views.table_record_detail_view),
+    path('tables/<int:pk>/import', views.table_bulk_import_view),
     path('tables/<int:pk>/export', views.table_export_view),
     path('tables/<int:pk>/move', views.table_move_view),
 

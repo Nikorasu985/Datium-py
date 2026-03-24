@@ -165,3 +165,43 @@ async function changePlan(planId) {
 }
 
 init();
+
+async function openPoliciesModal() {
+    showLoading('Cargando políticas...');
+    const res = await apiFetch('/admin/policies');
+    let termsText = 'No hay políticas definidas actualmente.';
+    if (res && res.ok) {
+        const data = await res.json();
+        if (data.terms) termsText = data.terms;
+    }
+    hideLoading();
+
+    const textToHtml = termsText.replace(/\n/g, '<br>');
+
+    const modalHtml = `
+        <div id="policiesModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex flex-col items-center justify-center p-4">
+            <div class="bg-white dark:bg-[#151f2b] rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800">
+                <div class="p-6 md:p-8 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                    <div class="flex items-center gap-4">
+                        <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl">
+                            <span class="material-symbols-outlined font-bold text-2xl">gavel</span>
+                        </div>
+                        <h2 class="text-2xl font-black text-gray-900 dark:text-white">Términos y Condiciones</h2>
+                    </div>
+                    <button onclick="document.getElementById('policiesModal').remove()" class="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div class="p-6 md:p-8 overflow-y-auto flex-1 text-gray-600 dark:text-gray-300 space-y-4 max-w-none dark:prose-invert">
+                    ${textToHtml}
+                </div>
+                <div class="p-6 md:p-8 border-t border-gray-100 dark:border-gray-800 flex justify-end bg-gray-50/50 dark:bg-gray-900/50">
+                    <button onclick="document.getElementById('policiesModal').remove()" class="px-8 py-4 rounded-2xl bg-primary text-white font-black tracking-widest uppercase hover:-translate-y-1 shadow-lg shadow-primary/20 transition-all">
+                        Entendido
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}

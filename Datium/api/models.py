@@ -26,6 +26,7 @@ class User(models.Model):
     email = models.EmailField(unique=True)
     password_hash = models.TextField()
     avatar_url = models.TextField(null=True, blank=True)
+    role = models.CharField(max_length=20, default='user')
     plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True)
     storage_used_bytes = models.BigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,6 +50,21 @@ class System(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SystemCollaborator(models.Model):
+    system = models.ForeignKey(System, on_delete=models.CASCADE, related_name='collaborators')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    can_read = models.BooleanField(default=True)
+    can_create = models.BooleanField(default=False)
+    can_update = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('system', 'user')
+
+    def __str__(self):
+        return f"{self.user.email} -> {self.system.name}"
 
 
 # =========================================
@@ -200,3 +216,28 @@ class SecurityAudit(models.Model):
     event = models.CharField(max_length=255)
     details = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+# =========================================
+# GLOBALS & REPORTS
+# =========================================
+
+class AppSetting(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.key
+
+
+class UserReport(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    summary = models.TextField()
+    screenshot_url = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=20, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.title

@@ -73,6 +73,10 @@ function renderTables(tables) {
                         class="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Eliminar Tabla">
                         <span class="material-symbols-outlined text-lg">delete</span>
                     </button>
+                    <button onclick="triggerBulkImport(${table.id}); event.stopPropagation();" 
+                        class="text-gray-400 hover:text-emerald-500 transition-colors p-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Importar Datos (CSV/JSON)">
+                        <span class="material-symbols-outlined text-lg">upload_file</span>
+                    </button>
                 </div>
             </div>
             
@@ -295,7 +299,8 @@ async function deleteTable(id) {
             try {
                 const res = await apiFetch(`/systems/${systemId}/tables/${id}`, { method: 'DELETE' });
                 if (res.ok) {
-                    loadTables();
+                    allTables = allTables.filter(t => t.id !== id);
+                    filterTables();
                     showSuccess('Tabla eliminada');
                 } else {
                     showError('Error eliminando tabla');
@@ -374,6 +379,46 @@ function selectRelationOption(fieldId, id, val) {
     document.getElementById(`modal_field_${fieldId}`).value = id;
     document.getElementById(`search_modal_field_${fieldId}`).value = val;
     hideRelationOptions(fieldId);
+}
+
+
+let targetImportTableId = null;
+
+function triggerBulkImport(tableId) {
+    targetImportTableId = tableId;
+    document.getElementById('bulkImportInput').click();
+}
+
+async function handleBulkImport(event) {
+    const file = event.target.files[0];
+    if (!file || !targetImportTableId) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    showLoading('Importando datos...');
+
+    try {
+        const res = await apiFetch(`/tables/${targetImportTableId}/import`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            showSuccess(`Se importaron ${data.count} registros correctamente.`);
+            loadTables(); 
+        } else {
+            const err = await res.json();
+            showError(err.error || 'Error al importar');
+        }
+    } catch (e) {
+        console.error(e);
+        showError('Error de conexión al importar');
+    } finally {
+        event.target.value = ''; 
+        targetImportTableId = null;
+    }
 }
 
 init();

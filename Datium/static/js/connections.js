@@ -121,6 +121,13 @@ async function renderDiagram() {
         return;
     }
 
+    const wrapper = document.getElementById('diagramContainerWrapper');
+    if (currentDiagramType === 'dictionary') {
+        wrapper.style.transform = 'none';
+        await renderDataDictionary();
+        return;
+    }
+
     try {
         let definition = '';
         if (currentDiagramType === 'er') {
@@ -137,8 +144,12 @@ async function renderDiagram() {
                 definition += `    ${safeName} {\n`;
                 fields.forEach(f => {
                     const safeFName = f.name.replace(/[^a-zA-Z0-9]/g, '_');
-                    const typeLabel = f.type.charAt(0).toUpperCase() + f.type.slice(1);
-                    definition += `        ${typeLabel} ${safeFName}\n`;
+                    let typeLabel = f.type.charAt(0).toUpperCase() + f.type.slice(1);
+                    if (f.type === 'string') typeLabel = 'string';
+                    if (f.type === 'number') typeLabel = 'number';
+                    
+                    let keyMarker = f.name.toLowerCase() === 'id' ? 'PK' : (f.relatedTableId ? 'FK' : '');
+                    definition += `        ${typeLabel} ${safeFName} ${keyMarker}\n`;
                     
                     if (f.relatedTableId) {
                         relationships.push({ from: table.id, to: f.relatedTableId, label: f.name });
@@ -147,7 +158,6 @@ async function renderDiagram() {
                 definition += '    }\n';
             }
 
-            // Add relationships
             relationships.forEach(rel => {
                 const fromName = tableMap[rel.from];
                 const toName = tableMap[rel.to];
@@ -157,15 +167,66 @@ async function renderDiagram() {
             });
 
         } else if (currentDiagramType === 'flow') {
-            definition = 'graph TD\n';
+            definition = 'graph LR\n';
+            definition += '    classDef table fill:#137fec,stroke:#fff,stroke-width:2px,color:#fff,rx:10px,ry:10px;\n';
+            const tableMap = {};
             currentTables.forEach(t => {
-                definition += `    T${t.id}["${t.name}"]\n`;
+                const safeName = t.name.replace(/[^a-zA-Z0-9_]/g, '');
+                tableMap[t.id] = safeName;
+                definition += `    T${t.id}["📚 ${t.name}"]:::table\n`;
             });
+            
+            for (const table of currentTables) {
+                const fRes = await apiFetch(`/tables/${table.id}/fields`);
+                const fields = fRes.ok ? await fRes.json() : [];
+                fields.forEach(f => {
+                    if (f.relatedTableId && tableMap[f.relatedTableId]) {
+                        definition += `    T${table.id} -- ${f.name} --> T${f.relatedTableId}\n`;
+                    }
+                });
+            }
         } else if (currentDiagramType === 'class') {
             definition = 'classDiagram\n';
             for (const table of currentTables) {
                 const safeName = table.name.replace(/[^a-zA-Z0-9]/g, '_');
-                definition += `    class ${safeName} {\n    }\n`;
+                definition += `    class ${safeName} {\n`;
+                const fRes = await apiFetch(`/tables/${table.id}/fields`);
+                const fields = fRes.ok ? await fRes.json() : [];
+                fields.forEach(f => {
+                    const safeFName = f.name.replace(/[^a-zA-Z0-9]/g, '_');
+                    const typeLabel = f.type.charAt(0).toUpperCase() + f.type.slice(1);
+                    definition += `        +${typeLabel} ${safeFName}\n`;
+                    if (f.relatedTableId) {
+                         const relatedTable = currentTables.find(t => t.id === f.relatedTableId);
+                         if (relatedTable) {
+                             const relSafeName = relatedTable.name.replace(/[^a-zA-Z0-9]/g, '_');
+                             // Agregamos la relación fuera de la clase después
+                         }
+                    }
+                });
+                definition += `    }\n`;
+                fields.forEach(f => {
+                    if (f.relatedTableId) {
+                        const relatedTable = currentTables.find(t => t.id === f.relatedTableId);
+                        if (relatedTable) {
+                            const relSafeName = relatedTable.name.replace(/[^a-zA-Z0-9]/g, '_');
+                            definition += `    ${safeName} --|> ${relSafeName} : ${f.name}\n`;
+                        }
+                    }
+                });
+            }
+        } else if (currentDiagramType === 'mindmap') {
+            definition = 'mindmap\n';
+            definition += `  root((Sistema))\n`;
+            for (const table of currentTables) {
+                const safeName = table.name.replace(/[^a-zA-Z0-9 ]/g, '');
+                definition += `    ${safeName}\n`;
+                const fRes = await apiFetch(`/tables/${table.id}/fields`);
+                const fields = fRes.ok ? await fRes.json() : [];
+                fields.forEach(f => {
+                    const safeFName = f.name.replace(/[^a-zA-Z0-9 ]/g, '');
+                    definition += `      ${safeFName}\n`;
+                });
             }
         }
 
@@ -177,6 +238,81 @@ async function renderDiagram() {
     } catch (e) {
         console.error("Mermaid error:", e);
     }
+}
+
+async function renderDataDictionary() {
+    const wrapper = document.getElementById('diagramContainerWrapper');
+    if (!wrapper) return;
+
+    let html = `
+        <div class="w-full max-w-4xl mx-auto space-y-8 animate-fade-in p-4">
+            <div class="text-center mb-10">
+                <h2 class="text-2xl font-black text-primary uppercase tracking-tighter mb-2">Diccionario de Datos</h2>
+                <p class="text-xs text-gray-500 font-bold uppercase tracking-widest leading-relaxed">Estructura detallada y definiciones técnica del sistema</p>
+            </div>
+    `;
+
+    for (const table of currentTables) {
+        const fRes = await apiFetch(`/tables/${table.id}/fields`);
+        const fields = fRes.ok ? await fRes.json() : [];
+        
+        html += `
+            <div class="bg-white dark:bg-gray-900 shadow-2xl rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 hover:shadow-primary/5 transition-all">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="p-3 bg-primary/10 rounded-2xl">
+                        <span class="material-symbols-outlined text-primary">analytics</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-[#111418] dark:text-white uppercase tracking-tight">${table.name}</h3>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">${table.description || 'Sin descripción técnica'}</p>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-[11px]">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Campo</th>
+                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Tipo</th>
+                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Atributos</th>
+                                <th class="pb-3 font-black text-gray-400 uppercase tracking-widest">Relación</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800/50">
+        `;
+
+        fields.forEach(f => {
+            const attrs = [];
+            if (f.name.toLowerCase() === 'id') attrs.push('PRIMARY KEY');
+            if (f.required) attrs.push('NOT NULL');
+            if (f.type === 'number') attrs.push('NUMERIC');
+            
+            const rel = f.relatedTableId ? `Refers to Table ID: ${f.relatedTableId}` : '-';
+
+            html += `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                    <td class="py-4 font-bold text-[#111418] dark:text-gray-200">${f.name}</td>
+                    <td class="py-4">
+                        <span class="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 font-mono text-[9px] uppercase">${f.type}</span>
+                    </td>
+                    <td class="py-4">
+                        ${attrs.map(a => `<span class="text-[9px] font-black text-gray-400 mr-2 opacity-60">${a}</span>`).join('') || '-'}
+                    </td>
+                    <td class="py-4 text-primary font-bold">${rel}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    wrapper.innerHTML = html;
 }
 
 async function renderDiagramFromCode(code) {

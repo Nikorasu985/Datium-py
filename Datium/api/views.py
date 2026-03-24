@@ -12,7 +12,8 @@ from io import StringIO
 from .models import (
     Plan, User, System, SystemTable, SystemField,
     SystemFieldOption, SystemRecord, SystemRecordValue,
-    SystemRelationship, AuditLog, SecurityAudit
+    SystemRelationship, AuditLog, SecurityAudit,
+    SystemCollaborator, AppSetting, UserReport
 )
 
 
@@ -35,6 +36,29 @@ def require_auth(request):
     if not user:
         return None, Response({'error': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
     return user, None
+
+
+def check_system_permission(user, system_id, permission_type):
+    """
+    Verifica si un usuario tiene un permiso específico sobre un sistema.
+    permission_type: 'read', 'create', 'update', 'delete'
+    """
+    try:
+        sys = System.objects.get(id=system_id)
+    except System.DoesNotExist:
+        return False, Response({'error': 'Sistema no encontrado'}, status=404)
+
+    if sys.owner_id == user.id:
+        return True, None
+        
+    try:
+        collab = SystemCollaborator.objects.get(system_id=system_id, user_id=user.id)
+        has_perm = getattr(collab, f'can_{permission_type}', False)
+        if has_perm:
+            return True, None
+        return False, Response({'error': f'No tienes permiso de {permission_type} en este sistema'}, status=403)
+    except SystemCollaborator.DoesNotExist:
+        return False, Response({'error': 'No tienes acceso a este sistema'}, status=403)
 
 
 def serialize_system(s):
@@ -160,6 +184,7 @@ def user_profile_view(request):
             'id': user.id, 'name': user.name, 'email': user.email,
             'avatarUrl': user.avatar_url or '',
             'planId': user.plan_id, 'planName': plan_name,
+            'role': getattr(user, 'role', 'user'),
             'createdAt': user.created_at.isoformat() if user.created_at else None,
         })
     else:
@@ -226,12 +251,16 @@ def user_verify_password_view(request):
 @api_view(['GET', 'POST'])
 def systems_list_view(request):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
 
     if request.method == 'GET':
-        systems = System.objects.filter(owner=user).order_by('-created_at')
-        return Response([serialize_system(s) for s in systems])
+        # Sistemas propios + sistemas donde soy colaborador
+        owned = System.objects.filter(owner=user)
+        collab_ids = SystemCollaborator.objects.filter(user=user, can_read=True).values_list('system_id', flat=True)
+        collab_systems = System.objects.filter(id__in=collab_ids)
+        
+        all_systems = (owned | collab_systems).distinct().order_by('-created_at')
+        return Response([serialize_system(s) for s in all_systems])
     else:
         name = request.data.get('name')
         s = System.objects.create(
@@ -248,27 +277,35 @@ def systems_list_view(request):
 @api_view(['GET', 'PUT', 'DELETE'])
 def systems_detail_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
+    
     try:
-        s = System.objects.get(id=pk, owner=user)
+        s = System.objects.get(id=pk)
     except System.DoesNotExist:
         return Response({'error': 'Sistema no encontrado'}, status=404)
 
     if request.method == 'GET':
+        ok, res = check_system_permission(user, pk, 'read')
+        if not ok: return res
         return Response(serialize_system(s))
     elif request.method == 'PUT':
+        # El dueño siempre puede editar, colaboradores necesitan permiso 'update'
+        ok, res = check_system_permission(user, pk, 'update')
+        if not ok: return res
         s.name = request.data.get('name', s.name)
         s.description = request.data.get('description', s.description)
         s.image_url = request.data.get('imageUrl', s.image_url)
         s.security_mode = request.data.get('securityMode', s.security_mode)
         pwd = request.data.get('generalPassword')
-        if pwd:
-            s.general_password = pwd
+        if pwd: s.general_password = pwd
         s.save()
         log_action(user, s, 'EDITAR_SISTEMA', f'Sistema "{s.name}" editado')
         return Response(serialize_system(s))
     else:
+        # Solo el dueño puede eliminar el sistema completo usualmente, 
+        # pero permitiremos que colaboradores con 'delete' lo hagan si así lo desea el dueño
+        ok, res = check_system_permission(user, pk, 'delete')
+        if not ok: return res
         name = s.name
         log_action(user, s, 'ELIMINAR_SISTEMA', f'Sistema "{name}" eliminado')
         s.delete()
@@ -339,37 +376,38 @@ def system_verify_password_view(request, pk):
 @api_view(['GET', 'POST'])
 def system_tables_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
-    try:
-        system = System.objects.get(id=pk)
-    except System.DoesNotExist:
-        return Response({'error': 'Sistema no encontrado'}, status=404)
+    if err: return err
 
     if request.method == 'GET':
-        tables = SystemTable.objects.filter(system=system).order_by('name')
+        ok, res = check_system_permission(user, pk, 'read')
+        if not ok: return res
+        tables = SystemTable.objects.filter(system_id=pk).order_by('name')
         return Response([serialize_table(t) for t in tables])
     else:
+        ok, res = check_system_permission(user, pk, 'create')
+        if not ok: return res
         name = request.data.get('name')
         desc = request.data.get('description')
         fields_data = request.data.get('fields', [])
-        table = SystemTable.objects.create(system=system, name=name, description=desc)
+        table = SystemTable.objects.create(system_id=pk, name=name, description=desc)
         _save_fields(table, fields_data)
-        log_action(user, system, 'CREAR_TABLA', f'Tabla "{name}" creada')
+        log_action(user, table.system, 'CREAR_TABLA', f'Tabla "{name}" creada')
         return Response(serialize_table(table), status=201)
 
 
 @api_view(['PUT', 'DELETE'])
 def system_table_detail_view(request, system_pk, table_pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
+
     try:
         table = SystemTable.objects.get(id=table_pk, system_id=system_pk)
     except SystemTable.DoesNotExist:
         return Response({'error': 'Tabla no encontrada'}, status=404)
 
     if request.method == 'PUT':
+        ok, res = check_system_permission(user, system_pk, 'update')
+        if not ok: return res
         table.name = request.data.get('name', table.name)
         table.description = request.data.get('description', table.description)
         table.save()
@@ -379,6 +417,8 @@ def system_table_detail_view(request, system_pk, table_pk):
         log_action(user, table.system, 'EDITAR_TABLA', f'Tabla "{table.name}" editada')
         return Response(serialize_table(table))
     else:
+        ok, res = check_system_permission(user, system_pk, 'delete')
+        if not ok: return res
         name = table.name
         system = table.system
         table.delete()
@@ -426,24 +466,96 @@ def _save_fields(table, fields_data, update=False):
 @api_view(['GET'])
 def system_invitations_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
-    return Response([])
+    if err: return err
+    try:
+        sys = System.objects.get(id=pk)
+    except System.DoesNotExist:
+        return Response({'error': 'Sistema no encontrado'}, status=404)
+        
+    # Solo el dueño puede ver la lista de invitados completa
+    if sys.owner_id != user.id:
+        return Response({'error': 'No autorizado'}, status=403)
+        
+    collabs = SystemCollaborator.objects.filter(system=sys).select_related('user')
+    data = [{
+        'id': c.id,
+        'email': c.user.email,
+        'name': c.user.name,
+        'can_read': c.can_read,
+        'can_create': c.can_create,
+        'can_update': c.can_update,
+        'can_delete': c.can_delete
+    } for c in collabs]
+    return Response(data)
 
 
 @api_view(['POST'])
 def system_invite_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
-    return Response({'ok': True, 'message': 'Invitación enviada'}, status=201)
+    if err: return err
+    
+    try:
+        sys = System.objects.get(id=pk)
+    except System.DoesNotExist:
+        return Response({'error': 'Sistema no encontrado'}, status=404)
+        
+    if sys.owner_id != user.id:
+        return Response({'error': 'No autorizado para invitar'}, status=403)
+        
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email es requerido'}, status=400)
+        
+    try:
+        target_user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'error': 'Usuario no encontrado en Datium'}, status=404)
+        
+    if target_user.id == user.id:
+        return Response({'error': 'No puedes invitarte a ti mismo'}, status=400)
+
+    # Permisos por defecto o enviados
+    can_read = request.data.get('can_read', True)
+    can_create = request.data.get('can_create', False)
+    can_update = request.data.get('can_update', False)
+    can_delete = request.data.get('can_delete', False)
+
+    collab, created = SystemCollaborator.objects.get_or_create(
+        system=sys, user=target_user,
+        defaults={
+            'can_read': can_read,
+            'can_create': can_create,
+            'can_update': can_update,
+            'can_delete': can_delete
+        }
+    )
+    
+    if not created:
+        # Actualizar permisos si ya existe
+        collab.can_read = can_read
+        collab.can_create = can_create
+        collab.can_update = can_update
+        collab.can_delete = can_delete
+        collab.save()
+
+    return Response({'ok': True, 'message': 'Colaborador actualizado/añadido'}, status=201 if created else 200)
 
 
 @api_view(['DELETE'])
 def system_invitation_delete_view(request, system_pk, share_pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
+    
+    try:
+        collab = SystemCollaborator.objects.get(id=share_pk, system_id=system_pk)
+    except SystemCollaborator.DoesNotExist:
+        return Response({'error': 'Colaboración no encontrada'}, status=404)
+        
+    # El dueño del sistema o el mismo colaborador pueden borrarla
+    if collab.system.owner_id != user.id and collab.user_id != user.id:
+        return Response({'error': 'No autorizado'}, status=403)
+        
+    collab.delete()
     return Response({'ok': True})
 
 
@@ -454,20 +566,31 @@ def system_invitation_delete_view(request, system_pk, share_pk):
 @api_view(['GET'])
 def table_detail_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
     try:
         table = SystemTable.objects.get(id=pk)
     except SystemTable.DoesNotExist:
         return Response({'error': 'Tabla no encontrada'}, status=404)
+        
+    ok, res = check_system_permission(user, table.system_id, 'read')
+    if not ok: return res
+    
     return Response(serialize_table(table))
 
 
 @api_view(['GET'])
 def table_fields_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
+    
+    try:
+        table = SystemTable.objects.get(id=pk)
+    except SystemTable.DoesNotExist:
+        return Response({'error': 'Tabla no encontrada'}, status=404)
+        
+    ok, res = check_system_permission(user, table.system_id, 'read')
+    if not ok: return res
+    
     fields = SystemField.objects.filter(table_id=pk).order_by('order_index')
     return Response([serialize_field(f) for f in fields])
 
@@ -475,8 +598,7 @@ def table_fields_view(request, pk):
 @api_view(['GET', 'POST'])
 def table_records_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
     try:
         table = SystemTable.objects.get(id=pk)
     except SystemTable.DoesNotExist:
@@ -485,9 +607,13 @@ def table_records_view(request, pk):
     fields = list(SystemField.objects.filter(table=table).order_by('order_index'))
 
     if request.method == 'GET':
+        ok, res = check_system_permission(user, table.system_id, 'read')
+        if not ok: return res
         records = SystemRecord.objects.filter(table=table).order_by('-created_at')
         return Response([serialize_record(r, fields) for r in records])
     else:
+        ok, res = check_system_permission(user, table.system_id, 'create')
+        if not ok: return res
         values = request.data.get('values', {})
         record = SystemRecord.objects.create(table=table, created_by=user)
         for field_id_str, value in values.items():
@@ -503,8 +629,7 @@ def table_records_view(request, pk):
 @api_view(['PUT', 'DELETE'])
 def table_record_detail_view(request, table_pk, record_pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
     try:
         record = SystemRecord.objects.get(id=record_pk, table_id=table_pk)
     except SystemRecord.DoesNotExist:
@@ -514,6 +639,8 @@ def table_record_detail_view(request, table_pk, record_pk):
     fields = list(SystemField.objects.filter(table=table).order_by('order_index'))
 
     if request.method == 'PUT':
+        ok, res = check_system_permission(user, table.system_id, 'update')
+        if not ok: return res
         values = request.data.get('values', {})
         for field_id_str, value in values.items():
             try:
@@ -529,6 +656,8 @@ def table_record_detail_view(request, table_pk, record_pk):
         log_action(user, table.system, 'EDITAR_REGISTRO', f'Registro #{record.id} editado')
         return Response(serialize_record(record, fields))
     else:
+        ok, res = check_system_permission(user, table.system_id, 'delete')
+        if not ok: return res
         rid = record.id
         record.delete()
         log_action(user, table.system, 'ELIMINAR_REGISTRO', f'Registro #{rid} eliminado')
@@ -538,12 +667,14 @@ def table_record_detail_view(request, table_pk, record_pk):
 @api_view(['GET'])
 def table_export_view(request, pk):
     user, err = require_auth(request)
-    if err:
-        return err
+    if err: return err
     try:
         table = SystemTable.objects.get(id=pk)
     except SystemTable.DoesNotExist:
         return Response({'error': 'Tabla no encontrada'}, status=404)
+
+    ok, res = check_system_permission(user, table.system_id, 'read')
+    if not ok: return res
 
     fmt = request.GET.get('format', 'csv')
     fields = list(SystemField.objects.filter(table=table).order_by('order_index'))
@@ -604,6 +735,60 @@ def table_move_view(request, pk):
 
     log_action(user, target_system, 'COPIAR_TABLA', f'Tabla "{source_table.name}" copiada')
     return Response(serialize_table(new_table))
+
+
+@api_view(['POST'])
+def table_bulk_import_view(request, pk):
+    user, err = require_auth(request)
+    if err: return err
+    try:
+        table = SystemTable.objects.get(id=pk)
+    except SystemTable.DoesNotExist:
+        return Response({'error': 'Tabla no encontrada'}, status=404)
+
+    ok, res = check_system_permission(user, table.system_id, 'create')
+    if not ok: return res
+
+    file = request.FILES.get('file')
+    if not file:
+        return Response({'error': 'No se proporcionó ningún archivo'}, status=400)
+
+    fields = list(SystemField.objects.filter(table=table).order_by('order_index'))
+    field_name_map = {f.name.lower(): f for f in fields}
+    
+    filename = file.name.lower()
+    records_to_create = []
+    
+    try:
+        if filename.endswith('.csv'):
+            decoded_file = file.read().decode('utf-8')
+            reader = csv.DictReader(StringIO(decoded_file))
+            for row in reader:
+                records_to_create.append(row)
+        elif filename.endswith('.json'):
+            records_to_create = json.load(file)
+            if not isinstance(records_to_create, list):
+                return Response({'error': 'JSON debe ser una lista de objetos'}, status=400)
+        else:
+            return Response({'error': 'Formato de archivo no soportado. Use CSV o JSON'}, status=400)
+
+        created_count = 0
+        for rec_data in records_to_create:
+            if not isinstance(rec_data, dict): continue
+            data_map = rec_data.get('fieldValues', rec_data)
+            if not isinstance(data_map, dict): continue
+            
+            record = SystemRecord.objects.create(table=table, created_by=user)
+            for key, val in data_map.items():
+                field = field_name_map.get(key.lower())
+                if field:
+                    SystemRecordValue.objects.create(record=record, field=field, value=str(val) if val is not None else '')
+            created_count += 1
+        
+        log_action(user, table.system, 'IMPORTAR_DATOS', f'Importados {created_count} registros en "{table.name}"')
+        return Response({'ok': True, 'count': created_count})
+    except Exception as e:
+        return Response({'error': f'Error al procesar archivo: {str(e)}'}, status=500)
 
 
 # ═══════════════════════════════════════════
@@ -735,3 +920,102 @@ def upload_image_view(request):
 
     url = f"{settings.MEDIA_URL}uploads/{filename}"
     return Response({'url': url})
+
+
+# ═══════════════════════════════════════════
+# REPORTS & ADMIN
+# ═══════════════════════════════════════════
+
+def require_admin(request):
+    user, err = require_auth(request)
+    if err: return None, err
+    if getattr(user, 'role', 'user') != 'admin':
+        return None, Response({'error': 'No autorizado. Se requiere rol de administrador.'}, status=403)
+    return user, None
+
+
+@api_view(['POST'])
+def user_reports_view(request):
+    user, err = require_auth(request)
+    if err: return err
+    title = request.data.get('title')
+    summary = request.data.get('summary')
+    screenshot_url = request.data.get('screenshot_url', '')
+    
+    rep = UserReport.objects.create(
+        user=user, title=title, summary=summary, screenshot_url=screenshot_url
+    )
+    return Response({'ok': True, 'reportId': rep.id}, status=201)
+
+
+@api_view(['GET', 'PUT'])
+def admin_policies_view(request):
+    if request.method == 'GET':
+        sett = AppSetting.objects.filter(key='terms_and_conditions').first()
+        return Response({'terms': sett.value if sett else ''})
+    else:
+        user, err = require_admin(request)
+        if err: return err
+        terms = request.data.get('terms', '')
+        sett, _ = AppSetting.objects.get_or_create(key='terms_and_conditions')
+        sett.value = terms
+        sett.save()
+        return Response({'ok': True})
+
+
+@api_view(['GET'])
+def admin_reports_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    reps = UserReport.objects.all().order_by('-created_at')
+    data = [{
+        'id': r.id, 'title': r.title, 'summary': r.summary,
+        'screenshot_url': r.screenshot_url, 'status': r.status,
+        'createdAt': r.created_at.isoformat(),
+        'userEmail': r.user.email if r.user else ''
+    } for r in reps]
+    return Response(data)
+
+
+@api_view(['PUT'])
+def admin_report_detail_view(request, pk):
+    user, err = require_admin(request)
+    if err: return err
+    try:
+        rep = UserReport.objects.get(id=pk)
+    except UserReport.DoesNotExist:
+        return Response({'error': 'Reporte no encontrado'}, status=404)
+    rep.status = request.data.get('status', rep.status)
+    rep.save()
+    return Response({'ok': True, 'status': rep.status})
+
+
+@api_view(['GET'])
+def admin_plans_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    plans = Plan.objects.all().order_by('id')
+    data = [{
+        'id': p.id, 'name': p.name, 'max_systems': p.max_systems,
+        'max_tables_per_system': p.max_tables_per_system,
+        'max_storage_mb': p.max_storage_mb,
+        'price_monthly': getattr(p, 'price_monthly', 0)
+    } for p in plans]
+    return Response(data)
+
+
+@api_view(['PUT'])
+def admin_plan_detail_view(request, pk):
+    user, err = require_admin(request)
+    if err: return err
+    try:
+        plan = Plan.objects.get(id=pk)
+    except Plan.DoesNotExist:
+        return Response({'error': 'Plan no encontrado'}, status=404)
+        
+    plan.name = request.data.get('name', plan.name)
+    plan.max_systems = request.data.get('max_systems', plan.max_systems)
+    plan.max_tables_per_system = request.data.get('max_tables_per_system', plan.max_tables_per_system)
+    plan.max_storage_mb = request.data.get('max_storage_mb', plan.max_storage_mb)
+    plan.save()
+    return Response({'ok': True})

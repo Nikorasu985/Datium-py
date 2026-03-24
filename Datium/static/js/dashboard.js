@@ -528,23 +528,28 @@ async function loadInvitations(systemId) {
             }
 
             listEl.innerHTML = invitations.map(inv => `
-                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                    <div class="flex items-center gap-3">
-                        <div class="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                            ${inv.userEmail.charAt(0).toUpperCase()}
+                <div class="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                                ${(inv.name || inv.email).charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-[#111418] dark:text-white">${inv.name || 'Usuario'}</div>
+                                <div class="text-[10px] text-gray-400 uppercase font-black">${inv.email}</div>
+                            </div>
                         </div>
-                        <div>
-                            <div class="text-sm font-bold text-[#111418] dark:text-white">${inv.userEmail}</div>
-                            <div class="text-xs text-gray-400">${inv.permissionLevel === 'EDITOR' ? 'Editor' : 'Visualizador'}</div>
-                        </div>
+                        <button onclick="revokeInvitation(${systemId}, ${inv.id})" 
+                            class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors" title="Revocar acceso">
+                            <span class="material-symbols-outlined text-lg">block</span>
+                        </button>
                     </div>
-                    ${inv.status === 'ACCEPTED' ?
-                    '<span class="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-md font-bold">Aceptado</span>' :
-                    '<span class="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-md font-bold">Pendiente</span>'}
-                    <button onclick="revokeInvitation(${systemId}, ${inv.id})" 
-                        class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors" title="Revocar acceso">
-                        <span class="material-symbols-outlined text-lg">block</span>
-                    </button>
+                    <div class="flex flex-wrap gap-2">
+                        ${renderPermBadge(systemId, inv.id, 'Read', inv.can_read, true)}
+                        ${renderPermBadge(systemId, inv.id, 'Create', inv.can_create)}
+                        ${renderPermBadge(systemId, inv.id, 'Update', inv.can_update)}
+                        ${renderPermBadge(systemId, inv.id, 'Delete', inv.can_delete)}
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -556,6 +561,49 @@ async function loadInvitations(systemId) {
     }
 }
 
+function renderPermBadge(systemId, shareId, label, active, disabled = false) {
+    const color = active ? 'bg-purple-500/20 text-purple-500 border-purple-500/30' : 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    const cursor = disabled ? 'cursor-default' : 'cursor-pointer hover:border-purple-500/50';
+    const action = disabled ? '' : `onclick="togglePermission(${systemId}, ${shareId}, '${label.toLowerCase()}', ${!active})"`;
+    
+    return `
+        <div ${action} class="px-2 py-1 rounded-md border ${color} ${cursor} text-[10px] font-bold uppercase transition-all flex items-center gap-1">
+            <span class="material-symbols-outlined text-[12px]">${active ? 'check_circle' : 'cancel'}</span>
+            ${label}
+        </div>
+    `;
+}
+
+async function togglePermission(systemId, shareId, perm, value) {
+    const listEl = document.getElementById('invitationsList');
+    const inv = Array.from(listEl.children).find(el => el.innerHTML.includes(`revokeInvitation(${systemId}, ${shareId})`));
+    const email = inv ? inv.querySelector('.text-[10px]').innerText : '';
+
+    if (!email) return;
+
+    try {
+        const payload = { email: email };
+        // Necesitamos mandar todos los permisos actuales + el nuevo
+        // Para simplificar, obtenemos los permisos del DOM o re-usamos sendInvitation logic
+        const badges = inv.querySelectorAll('[onclick*="togglePermission"]');
+        payload.can_read = true;
+        payload.can_create = perm === 'create' ? value : inv.innerHTML.includes('Create') && inv.innerHTML.includes('check_circle');
+        payload.can_update = perm === 'update' ? value : inv.innerHTML.includes('Update') && inv.innerHTML.includes('check_circle');
+        payload.can_delete = perm === 'delete' ? value : inv.innerHTML.includes('Delete') && inv.innerHTML.includes('check_circle');
+
+        const res = await apiFetch(`/systems/${systemId}/invite`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            loadInvitations(systemId);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 async function sendInvitation() {
     if (!currentInvitationSystemId) return;
     const email = document.getElementById('inviteEmail').value;
@@ -564,21 +612,33 @@ async function sendInvitation() {
         return;
     }
 
+    const payload = {
+        email: email,
+        can_read: true,
+        can_create: document.getElementById('permCreate').checked,
+        can_update: document.getElementById('permUpdate').checked,
+        can_delete: document.getElementById('permDelete').checked
+    };
+
     showLoading('Enviando invitación...');
 
     try {
         const res = await apiFetch(`/systems/${currentInvitationSystemId}/invite`, {
             method: 'POST',
-            body: JSON.stringify({ email: email, permission: 'EDITOR' }) // Default to EDITOR for full access
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
             showSuccess('Invitación enviada');
             document.getElementById('inviteEmail').value = '';
+            // Reset checkboxes
+            document.getElementById('permCreate').checked = false;
+            document.getElementById('permUpdate').checked = false;
+            document.getElementById('permDelete').checked = false;
             loadInvitations(currentInvitationSystemId);
         } else {
             const data = await res.json();
-            showError(data.message || 'Error al invitar');
+            showError(data.error || data.message || 'Error al invitar');
         }
     } catch (e) {
         showError('Error de conexión');

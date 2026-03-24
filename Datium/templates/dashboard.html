@@ -230,7 +230,7 @@
                 </div>
 
                 <div id="invitationModal"
-                    class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center transition-opacity duration-300">
+                    class="hidden fixed inset-0 bg-transparent z-[60] flex items-center justify-center transition-opacity duration-300">
                     <div
                         class="bg-white dark:bg-[#151f2b] rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[80vh] flex flex-col">
                         <div class="flex justify-between items-center mb-6">
@@ -247,8 +247,7 @@
                         </div>
 
                         <div class="mb-6 space-y-3">
-                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide">Invitar
-                                Usuario</label>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide">Invitar Usuario</label>
                             <div class="flex gap-2">
                                 <input type="email" id="inviteEmail" placeholder="correo@ejemplo.com"
                                     class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-sm focus:ring-2 focus:ring-purple-500/50 outline-none transition-all dark:text-white">
@@ -257,6 +256,25 @@
                                     <span class="material-symbols-outlined text-lg">send</span>
                                     Invitar
                                 </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-4 gap-2 mt-4">
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 cursor-pointer">
+                                    <input type="checkbox" id="permRead" checked disabled class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase">Leer</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 cursor-pointer">
+                                    <input type="checkbox" id="permCreate" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase">Crear</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 cursor-pointer">
+                                    <input type="checkbox" id="permUpdate" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase">Editar</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 cursor-pointer">
+                                    <input type="checkbox" id="permDelete" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase">Borrar</span>
+                                </label>
                             </div>
                         </div>
 
@@ -382,16 +400,7 @@
                     <div class="flex flex-col gap-4 h-full">
                         <h3 class="font-bold text-[#111418] dark:text-white text-sm mb-1">Acciones Rápidas</h3>
 
-                        <a href="file:///C:/Users/Nico9/OneDrive/Escritorio/Ejecutar%20Datium.bat"
-                            class="flex-1 bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-emerald-500/50 transition-all text-left flex items-center gap-4 group">
-                            <div class="h-10 w-10 rounded-xl overflow-hidden ring-1 ring-emerald-500/30 group-hover:scale-110 transition-transform">
-                                <img src="{% static 'img/Isotipo modo oscuro.jpeg' %}" alt="Isotipo Datium" class="h-full w-full object-cover">
-                            </div>
-                            <div>
-                                <div class="text-emerald-400 font-bold text-sm">Ejecutar Datium</div>
-                                <div class="text-gray-500 text-xs">Conecta MySQL, OpenClaw y servidor local</div>
-                            </div>
-                        </a>
+
 
                         <button onclick="window.location.href='system_form.html'"
                             class="flex-1 bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 transition-all text-left flex items-center gap-4 group">
