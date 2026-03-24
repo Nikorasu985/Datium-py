@@ -256,6 +256,7 @@ async function clearHistory() {
 async function executeClearHistory() {
     try {
         if (!currentConversationId) return;
+        const prevConversationId = currentConversationId;
         const url = `/chatbot/conversations/${currentConversationId}/`;
         const res = await fetch(url, { 
             method: 'DELETE',
@@ -265,6 +266,7 @@ async function executeClearHistory() {
             pendingAiActions = null;
             selectedFiles = [];
             clearUndoActions();
+            try { localStorage.removeItem(`datium_chat_undo_${prevConversationId}`); } catch (e) {}
             renderFilePreviews();
             if (currentXhr) {
                 try { currentXhr.abort(); } catch (e) {}
@@ -272,9 +274,11 @@ async function executeClearHistory() {
             }
             isWaitingResponse = false;
             toggleInputState(true);
-            const container = document.getElementById('chatMessages');
+            currentConversationId = null;
+            localStorage.removeItem(conversationStorageKey());
             renderWelcomeState();
-            addMessageToUI('ai', 'Listo. Limpié el chat y dejé la vista fresca para arrancar otra vez ✨', true);
+            addMessageToUI('ai', 'Listo. Borré el contexto de este chat y arranqué una conversación limpia ✨', true);
+            await createNewConversation(true);
         } else {
             if(typeof window.showError === 'function') window.showError('Error al vaciar chat');
         }
@@ -757,6 +761,21 @@ function closeAiCrudModal(confirmed) {
     }
 }
 
+function humanizeCrudError(error) {
+    const raw = String(error || '').trim();
+    if (!raw) return 'Ocurrió un error al ejecutar el cambio.';
+    if (raw.includes("Field 'id' expected a number but got")) {
+        return 'Una relación entre tablas llegó con un nombre en vez de un ID real. Ya ajusté esta parte para resolver tablas nuevas correctamente; inténtalo otra vez.';
+    }
+    if (raw.toLowerCase().includes('no tienes permiso')) {
+        return raw;
+    }
+    if (raw.toLowerCase().includes('contraseña')) {
+        return raw;
+    }
+    return raw;
+}
+
 async function executeAiActions(actions, extra = {}) {
     addMessageToUI('ai', 'Voy con eso. Ejecutando cambios en Datium... ⚙️', true);
     const typingId = addTypingIndicator();
@@ -769,7 +788,7 @@ async function executeAiActions(actions, extra = {}) {
         removeTypingIndicator(typingId);
         const data = await res.json();
         if (!res.ok) {
-            addMessageToUI('ai', 'Error: ' + (data.error || 'Error desconocido'), true);
+            addMessageToUI('ai', 'No pude ejecutar ese cambio.\n\n- ' + humanizeCrudError(data.error || 'Error desconocido'), true);
             return;
         }
 
@@ -782,7 +801,7 @@ async function executeAiActions(actions, extra = {}) {
         let msg = `Listo ✨\n\n- Ejecutadas correctamente: ${okCount}`;
         if (errCount > 0) msg += `\n- Con error: ${errCount}`;
         if (results.some(r => r.error)) {
-            msg += `\n\nDetalles\n` + results.filter(r => r.error).map(r => `- ${r.error}`).join('\n');
+            msg += `\n\nQué pasó\n` + results.filter(r => r.error).map(r => `- ${humanizeCrudError(r.error)}`).join('\n');
         }
 
         const links = results.flatMap(r => (r.links || [])).filter(l => l && l.url && l.label).slice(0, 8);
@@ -851,11 +870,21 @@ function initVoice() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     let isRecording = false;
+    let shouldKeepRecording = false;
+    let finalTranscript = '';
 
     recognition.lang = 'es-ES';
     recognition.interimResults = true;
     recognition.continuous = true;
     recognition.maxAlternatives = 1;
+
+    const syncTranscriptToInput = (interim = '') => {
+        const merged = `${finalTranscript} ${interim}`.replace(/\s+/g, ' ').trim();
+        input.value = merged;
+        autoResizeChatInput();
+        const btnSend = document.getElementById('btnSend');
+        if (btnSend) btnSend.disabled = !input.value.trim();
+    };
 
     const resetVoiceUi = () => {
         isRecording = false;
@@ -874,29 +903,40 @@ function initVoice() {
     };
 
     recognition.onresult = (event) => {
-        let transcript = '';
+        let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
+            const part = event.results[i][0].transcript || '';
+            if (event.results[i].isFinal) {
+                finalTranscript = `${finalTranscript} ${part}`.trim();
+            } else {
+                interimTranscript += ` ${part}`;
+            }
         }
-        input.value = transcript.trim();
-        const btnSend = document.getElementById('btnSend');
-        if (btnSend) btnSend.disabled = !input.value.trim();
+        syncTranscriptToInput(interimTranscript);
     };
 
     recognition.onerror = () => {
-        resetVoiceUi();
+        if (!shouldKeepRecording) {
+            resetVoiceUi();
+        }
     };
 
     recognition.onend = () => {
+        if (shouldKeepRecording) {
+            try { recognition.start(); return; } catch (e) {}
+        }
         resetVoiceUi();
     };
 
     btnVoice.onclick = () => {
-        if (isRecording) {
+        if (isRecording || shouldKeepRecording) {
+            shouldKeepRecording = false;
             recognition.stop();
             return;
         }
-        recognition.start();
+        finalTranscript = input.value.trim();
+        shouldKeepRecording = true;
+        try { recognition.start(); } catch (e) { resetVoiceUi(); }
     };
 }
 

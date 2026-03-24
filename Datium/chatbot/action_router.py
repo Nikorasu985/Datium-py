@@ -81,21 +81,74 @@ def route_action(original_request, action: str, payload: Dict[str, Any]) -> Acti
             system_id = int(data["id"])
             created_tables = []
             table_errors = []
-            for table in payload.get("tables", []) or []:
-                if not isinstance(table, dict):
-                    continue
+            table_id_map: Dict[str, int] = {}
+            raw_tables = [t for t in (payload.get("tables", []) or []) if isinstance(t, dict)]
+
+            def _resolve_field(field: Dict[str, Any]) -> Dict[str, Any]:
+                fd = dict(field)
+                rel = fd.get("relatedTableId")
+                if isinstance(rel, str) and not rel.isdigit():
+                    fd["relatedTableName"] = rel
+                    mapped = table_id_map.get(rel.strip().lower())
+                    if mapped:
+                        fd["relatedTableId"] = mapped
+                    else:
+                        fd.pop("relatedTableId", None)
+                elif rel not in (None, ""):
+                    try:
+                        fd["relatedTableId"] = int(rel)
+                    except Exception:
+                        fd.pop("relatedTableId", None)
+                return fd
+
+            for table in raw_tables:
+                table_name = (table.get("name") or "Tabla").strip()
+                initial_fields = []
+                delayed_relations = []
+                for field in table.get("fields", []) or []:
+                    if not isinstance(field, dict):
+                        continue
+                    if field.get("type") == "relation":
+                        delayed_relations.append(field)
+                    else:
+                        initial_fields.append(field)
+
                 table_payload = {
                     "systemId": system_id,
-                    "name": table.get("name"),
+                    "name": table_name,
                     "description": table.get("description", ""),
-                    "fields": table.get("fields", []),
+                    "fields": initial_fields,
                 }
                 t_req = _internal_request(original_request, "POST", f"/api/systems/{system_id}/tables", table_payload)
                 t_code, t_data = _call(api_views.system_tables_view, t_req, pk=system_id)
-                if t_code < 400:
+                if t_code < 400 and isinstance(t_data, dict) and t_data.get("id"):
                     created_tables.append(t_data)
+                    table_id_map[table_name.lower()] = int(t_data["id"])
+                    table["__created_id"] = int(t_data["id"])
+                    table["__delayed_relations"] = delayed_relations
                 else:
-                    table_errors.append({"table": table.get("name") or "Tabla", "error": t_data})
+                    table_errors.append({"table": table_name, "error": t_data})
+
+            for table in raw_tables:
+                table_id = table.get("__created_id")
+                if not table_id:
+                    continue
+                all_fields = []
+                for field in table.get("fields", []) or []:
+                    if not isinstance(field, dict):
+                        continue
+                    all_fields.append(_resolve_field(field))
+                upd_payload = {
+                    "systemId": system_id,
+                    "tableId": table_id,
+                    "name": table.get("name"),
+                    "description": table.get("description", ""),
+                    "fields": all_fields,
+                }
+                u_req = _internal_request(original_request, "PUT", f"/api/systems/{system_id}/tables/{table_id}", upd_payload)
+                u_code, u_data = _call(api_views.system_table_detail_view, u_req, system_pk=system_id, table_pk=table_id)
+                if u_code >= 400:
+                    table_errors.append({"table": table.get("name") or "Tabla", "error": u_data})
 
             result = dict(data)
             result["tables"] = created_tables
