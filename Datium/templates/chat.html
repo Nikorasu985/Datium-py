@@ -116,6 +116,23 @@
                 <!-- Messages will be injected here -->
             </div>
 
+            <div id="persistentUndoBar" class="hidden px-4 md:px-6 pb-0 pt-3 bg-transparent">
+                <div class="max-w-4xl mx-auto">
+                    <div class="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/10 px-4 py-3 shadow-sm">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined">undo</span>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-[11px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Undo disponible</div>
+                                <div id="persistentUndoLabel" class="text-sm text-gray-700 dark:text-gray-200 truncate">Hay cambios disponibles para deshacer.</div>
+                            </div>
+                        </div>
+                        <button onclick="executeUndoActions()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider shadow-lg shadow-amber-500/20 transition-all">Deshacer</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Input Area -->
             <div class="p-4 md:p-6 bg-gray-50/50 dark:bg-transparent border-t border-gray-200/60 dark:border-gray-800 relative">
                 <div class="max-w-4xl mx-auto space-y-4">

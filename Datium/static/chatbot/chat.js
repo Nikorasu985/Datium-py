@@ -71,6 +71,51 @@ function currentConversationTitle() {
     return 'Chat Global';
 }
 
+function undoStorageKey() {
+    const conv = currentConversationId || localStorage.getItem(conversationStorageKey()) || 'none';
+    return `datium_chat_undo_${conv}`;
+}
+
+function persistUndoActions() {
+    try {
+        if (lastUndoActions && lastUndoActions.length > 0) {
+            localStorage.setItem(undoStorageKey(), JSON.stringify(lastUndoActions));
+        } else {
+            localStorage.removeItem(undoStorageKey());
+        }
+    } catch (e) {
+        console.warn('Could not persist undo actions', e);
+    }
+    renderPersistentUndoBar();
+}
+
+function restoreUndoActions() {
+    try {
+        const raw = localStorage.getItem(undoStorageKey());
+        lastUndoActions = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        lastUndoActions = [];
+    }
+    renderPersistentUndoBar();
+}
+
+function clearUndoActions() {
+    lastUndoActions = [];
+    persistUndoActions();
+}
+
+function renderPersistentUndoBar() {
+    const bar = document.getElementById('persistentUndoBar');
+    const label = document.getElementById('persistentUndoLabel');
+    if (!bar || !label) return;
+    if (Array.isArray(lastUndoActions) && lastUndoActions.length > 0) {
+        label.innerText = `Hay ${lastUndoActions.length} cambio(s) disponibles para deshacer.`;
+        bar.classList.remove('hidden');
+    } else {
+        bar.classList.add('hidden');
+    }
+}
+
 async function initConversations() {
     currentConversationId = null;
     const stored = localStorage.getItem(conversationStorageKey());
@@ -97,6 +142,7 @@ async function createNewConversation(silent = false) {
         currentConversationId = conv?.id || null;
         if (currentConversationId) {
             localStorage.setItem(conversationStorageKey(), String(currentConversationId));
+            restoreUndoActions();
             await loadChatHistory();
         }
     } catch (e) {
@@ -186,6 +232,7 @@ async function loadChatHistory() {
             }
             const selector = document.getElementById('systemSelector');
             if (selector && currentSystemId) selector.value = String(currentSystemId);
+            restoreUndoActions();
         }
     } catch (e) {
         console.error("Error loading history", e);
@@ -217,6 +264,7 @@ async function executeClearHistory() {
         if (res.ok) {
             pendingAiActions = null;
             selectedFiles = [];
+            clearUndoActions();
             renderFilePreviews();
             if (currentXhr) {
                 try { currentXhr.abort(); } catch (e) {}
@@ -729,6 +777,7 @@ async function executeAiActions(actions, extra = {}) {
         const okCount = results.filter(r => r.ok).length;
         const errCount = results.length - okCount;
         lastUndoActions = (data && data.undo_actions) ? data.undo_actions : [];
+        persistUndoActions();
 
         let msg = `Listo ✨\n\n- Ejecutadas correctamente: ${okCount}`;
         if (errCount > 0) msg += `\n- Con error: ${errCount}`;
@@ -787,7 +836,7 @@ async function executeUndoActions() {
         return;
     }
     const actions = [...lastUndoActions];
-    lastUndoActions = [];
+    clearUndoActions();
     await executeAiActions(actions);
 }
 
