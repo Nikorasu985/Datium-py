@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 sendMessage();
             }
         });
+        chatInput.addEventListener('input', autoResizeChatInput);
+        autoResizeChatInput();
         chatInput.focus();
     }
 
@@ -64,7 +66,7 @@ function currentConversationTitle() {
     const selector = document.getElementById('systemSelector');
     if (selector && selector.value) {
         const name = selector.options[selector.selectedIndex]?.text || 'Sistema';
-        return `${name} · IA`;
+        return `${name} - IA`;
     }
     return 'Chat Global';
 }
@@ -137,51 +139,27 @@ async function checkAiStatus() {
 function renderWelcomeState() {
     const container = document.getElementById('chatMessages');
     if (!container) return;
-    const selector = document.getElementById('systemSelector');
-    const focusedName = (selector && selector.value) ? selector.options[selector.selectedIndex]?.text : null;
-    const subtitle = focusedName
-        ? `Estoy centrada en ${focusedName}. Todo lo que cree, consulte o modifique se intentará resolver dentro de ese sistema.`
-        : 'Puedo ayudarte a crear, editar, consultar y ordenar sistemas con lenguaje natural, cuidando permisos, auditoría y cambios sensibles.';
     container.innerHTML = `
-        <div class="max-w-5xl mx-auto w-full space-y-5">
-            <div class="bg-white dark:bg-[#151f2b] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-lg overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-[#1a2634]">
-                    <h3 class="font-bold text-[#111418] dark:text-white text-base flex items-center gap-2">
-                        <span class="material-symbols-outlined text-blue-500">forum</span>
-                        Asistente IA
-                    </h3>
-                    <div class="text-[10px] font-bold ${focusedName ? 'text-emerald-500 bg-emerald-500/10' : 'text-gray-500 bg-gray-500/10'} px-2 py-1 rounded-md">
-                        ${focusedName ? `FOCO · ${focusedName}` : 'MODO GLOBAL'}
-                    </div>
-                </div>
-                <div class="p-6 md:p-7">
-                    <div class="flex items-start gap-4 mb-6">
-                        <div class="p-3 bg-blue-500/10 rounded-xl text-blue-500">
-                            <span class="material-symbols-outlined text-2xl">auto_awesome</span>
-                        </div>
-                        <div>
-                            <div class="text-2xl font-black text-[#111418] dark:text-white">Hola. Soy tu IA operativa ✨</div>
-                            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-3xl">${subtitle}</p>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button onclick="setSuggestion('Crea una tabla de asistentes para un evento con nombre, apellido y asistió')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 transition-all text-left flex items-center gap-4 group">
-                            <div class="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">table_chart</span></div>
-                            <div><div class="text-blue-400 font-bold text-sm">Crear tabla</div><div class="text-gray-500 text-xs">Diseño exacto según lo que pidas</div></div>
-                        </button>
-                        <button onclick="setSuggestion('Crea registros de ejemplo para el sistema actual y dime qué hace falta completar')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-emerald-500/50 transition-all text-left flex items-center gap-4 group">
-                            <div class="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">playlist_add</span></div>
-                            <div><div class="text-emerald-400 font-bold text-sm">Crear registros</div><div class="text-gray-500 text-xs">Insertar datos dentro del sistema enfocado</div></div>
-                        </button>
-                        <button onclick="setSuggestion('Muéstrame las tablas del sistema actual y dime cuál conviene mejorar')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 transition-all text-left flex items-center gap-4 group">
-                            <div class="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">analytics</span></div>
-                            <div><div class="text-purple-400 font-bold text-sm">Analizar estructura</div><div class="text-gray-500 text-xs">Tablas, campos, relaciones y mejoras</div></div>
-                        </button>
-                        <button onclick="setSuggestion('Muéstrame los últimos cambios importantes y qué debería auditar')" class="bg-white dark:bg-[#1a2634] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-orange-500/50 transition-all text-left flex items-center gap-4 group">
-                            <div class="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">history</span></div>
-                            <div><div class="text-orange-400 font-bold text-sm">Revisar auditoría</div><div class="text-gray-500 text-xs">Cambios sensibles, trazabilidad y riesgos</div></div>
-                        </button>
-                    </div>
+        <div class="max-w-5xl mx-auto w-full py-10 md:py-14">
+            <div class="flex flex-col items-center justify-center gap-8 text-center">
+                <img src="/static/img/Isotipo modo oscuro.jpeg" alt="Datium" class="w-24 h-24 md:w-28 md:h-28 object-contain opacity-95">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
+                    <button onclick="setSuggestion('Crea una tabla de asistentes para un evento con nombre, apellido y asistió')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
+                        <div class="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">table_chart</span></div>
+                        <div><div class="text-blue-400 font-bold text-sm">Crear tabla</div><div class="text-gray-500 text-xs">Diseño exacto según lo que pidas</div></div>
+                    </button>
+                    <button onclick="setSuggestion('Crea registros de ejemplo para el sistema actual y dime qué hace falta completar')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-emerald-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
+                        <div class="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">playlist_add</span></div>
+                        <div><div class="text-emerald-400 font-bold text-sm">Crear registros</div><div class="text-gray-500 text-xs">Insertar datos y completar estructura</div></div>
+                    </button>
+                    <button onclick="setSuggestion('Muéstrame las tablas del sistema actual y dime cuál conviene mejorar')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
+                        <div class="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">analytics</span></div>
+                        <div><div class="text-purple-400 font-bold text-sm">Analizar estructura</div><div class="text-gray-500 text-xs">Tablas, campos, relaciones y mejoras</div></div>
+                    </button>
+                    <button onclick="setSuggestion('Muéstrame los últimos cambios importantes y qué debería auditar')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-orange-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
+                        <div class="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">history</span></div>
+                        <div><div class="text-orange-400 font-bold text-sm">Revisar auditoría</div><div class="text-gray-500 text-xs">Cambios sensibles, trazabilidad y riesgos</div></div>
+                    </button>
                 </div>
             </div>
         </div>`;
@@ -320,6 +298,7 @@ async function sendMessage() {
     
     const originalText = text;
     input.value = '';
+    autoResizeChatInput();
     const filesToSend = [...selectedFiles];
     selectedFiles = [];
     renderFilePreviews();
@@ -419,6 +398,13 @@ async function sendMessage() {
     }
 }
 
+function autoResizeChatInput() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 220)}px`;
+}
+
 function formatAiMessage(content) {
     if (!content) return "No hay contenido para mostrar.";
 
@@ -484,6 +470,14 @@ function formatAiMessage(content) {
     return html;
 }
 
+function describeField(fd) {
+    if (!fd?.name) return null;
+    const extras = [];
+    if (fd.type === 'relation' && fd.relatedTableName) extras.push(`relación con ${fd.relatedTableName}`);
+    if (fd.type === 'select' && Array.isArray(fd.options) && fd.options.length) extras.push(fd.options.join(', '));
+    return extras.length ? `${fd.name} (${extras.join(' · ')})` : fd.name;
+}
+
 function buildHumanPreviewFromActions(actions) {
     const a = Array.isArray(actions) ? actions : [];
     const lines = [];
@@ -497,14 +491,18 @@ function buildHumanPreviewFromActions(actions) {
         const action = x?.action || x?.type;
         const payload = x?.payload || {};
 
+        if (action === 'create_system' && payload?.name) {
+            lines.push(`Sistema: ${payload.name}`);
+            if (payload.description) lines.push(`- ${payload.description}`);
+            lines.push('');
+            (payload.tables || []).forEach(tbl => {
+                const f = (tbl.fields || []).map(describeField).filter(Boolean);
+                pushTable(tbl.name || 'Tabla', f.length ? f : ['(Sin campos definidos)']);
+            });
+        }
+
         if (action === 'create_table' && payload?.name) {
-            const f = (payload.fields || []).map(fd => {
-                if (!fd?.name) return null;
-                const extras = [];
-                if (fd.type === 'relation' && fd.relatedTableName) extras.push(`relación con ${fd.relatedTableName}`);
-                if (fd.type === 'select' && Array.isArray(fd.options) && fd.options.length) extras.push(fd.options.join(', '));
-                return extras.length ? `${fd.name} (${extras.join(' · ')})` : fd.name;
-            }).filter(Boolean);
+            const f = (payload.fields || []).map(describeField).filter(Boolean);
             pushTable(payload.name, f.length ? f : ['(Sin campos definidos)']);
         }
 
@@ -561,13 +559,13 @@ function addMessageToUI(role, content, animate, actions = null, systemName = nul
             btnRow.className = 'mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2';
 
             const btnCancel = document.createElement('button');
-            btnCancel.className = 'w-full py-3 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-black text-[10px] uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-gray-800 transition-all';
+            btnCancel.className = 'w-full py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 font-black text-[10px] uppercase tracking-[0.16em] hover:bg-gray-100 dark:hover:bg-gray-800 transition-all shadow-sm';
             btnCancel.innerText = 'Cancelar';
             btnCancel.onclick = () => addMessageToUI('ai', 'Cancelado. No ejecuté ningún cambio 👍', true);
 
             const btn = document.createElement('button');
-            btn.className = 'w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all';
-            btn.innerText = 'Aceptar y revisar';
+            btn.className = 'w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] uppercase tracking-[0.16em] shadow-lg shadow-emerald-500/20 hover:from-emerald-600 hover:to-teal-600 transition-all';
+            btn.innerText = 'Crear / aplicar';
             btn.onclick = () => openAiCrudModal(actions);
 
             btnRow.appendChild(btnCancel);
@@ -578,12 +576,21 @@ function addMessageToUI(role, content, animate, actions = null, systemName = nul
             inner.appendChild(actionBox);
         }
 
-        if (quickAction && quickAction.label && typeof quickAction.onClick === 'function') {
-            const quickBtn = document.createElement('button');
-            quickBtn.className = 'mt-4 px-4 py-2.5 rounded-xl bg-amber-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all';
-            quickBtn.innerText = quickAction.label;
-            quickBtn.onclick = quickAction.onClick;
-            inner.appendChild(quickBtn);
+        const quickActions = Array.isArray(quickAction) ? quickAction : (quickAction ? [quickAction] : []);
+        if (quickActions.length > 0) {
+            const actionRow = document.createElement('div');
+            actionRow.className = 'mt-4 flex flex-wrap gap-2';
+            quickActions.forEach(action => {
+                if (!action?.label || typeof action.onClick !== 'function') return;
+                const quickBtn = document.createElement('button');
+                quickBtn.className = (action.variant === 'primary'
+                    ? 'px-4 py-2.5 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all'
+                    : 'px-4 py-2.5 rounded-xl bg-amber-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all');
+                quickBtn.innerText = action.label;
+                quickBtn.onclick = action.onClick;
+                actionRow.appendChild(quickBtn);
+            });
+            inner.appendChild(actionRow);
         }
     }
     else inner.innerText = content;
@@ -730,18 +737,41 @@ async function executeAiActions(actions, extra = {}) {
         }
 
         const links = results.flatMap(r => (r.links || [])).filter(l => l && l.url && l.label).slice(0, 8);
+        const createdSystem = results.map(r => r.data).find(d => d && d.id && Array.isArray(d.tables));
         if (links.length > 0) {
             msg += '\n\nAbrir cambios\n' + links.map(l => `- ${l.label}: ${l.url}`).join('\n');
+        }
+        if (createdSystem) {
+            const tableCount = Array.isArray(createdSystem.tables) ? createdSystem.tables.length : 0;
+            msg += `\n\nEl sistema ya quedó listo${tableCount ? ` con ${tableCount} tabla${tableCount === 1 ? '' : 's'}` : ''}.`;
         }
 
         if (lastUndoActions.length > 0) {
             msg += '\n\nPuedes deshacer este cambio con el botón Undo ↩️';
         }
 
-        addMessageToUI('ai', msg, true, null, null, lastUndoActions.length > 0 ? {
-            label: 'Undo',
-            onClick: () => executeUndoActions()
-        } : null);
+        const quickActions = [];
+        if (createdSystem?.id) {
+            quickActions.push({
+                label: 'Abrir sistema',
+                variant: 'primary',
+                onClick: () => { window.location.href = `/system.html?id=${createdSystem.id}`; }
+            });
+        } else if (links.length > 0) {
+            quickActions.push({
+                label: 'Abrir',
+                variant: 'primary',
+                onClick: () => { window.location.href = links[0].url; }
+            });
+        }
+        if (lastUndoActions.length > 0) {
+            quickActions.push({
+                label: 'Undo',
+                onClick: () => executeUndoActions()
+            });
+        }
+
+        addMessageToUI('ai', msg, true, null, null, quickActions);
     } catch (e) {
         removeTypingIndicator(typingId);
         addMessageToUI('ai', 'Error de conexión.', true);

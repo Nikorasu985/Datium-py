@@ -66,9 +66,42 @@ def route_action(original_request, action: str, payload: Dict[str, Any]) -> Acti
             uid = None
 
         if action == "create_system":
-            req = _internal_request(original_request, "POST", "/api/systems", payload)
+            system_payload = {
+                "name": payload.get("name"),
+                "description": payload.get("description"),
+                "imageUrl": payload.get("imageUrl"),
+                "securityMode": payload.get("securityMode", "none"),
+                "generalPassword": payload.get("generalPassword"),
+            }
+            req = _internal_request(original_request, "POST", "/api/systems", system_payload)
             code, data = _call(api_views.systems_list_view, req)
-            return ActionResult(code < 400, code, data=data)
+            if code >= 400 or not isinstance(data, dict) or not data.get("id"):
+                return ActionResult(False, code, data=data, error=(data or {}).get("error") if isinstance(data, dict) else None)
+
+            system_id = int(data["id"])
+            created_tables = []
+            table_errors = []
+            for table in payload.get("tables", []) or []:
+                if not isinstance(table, dict):
+                    continue
+                table_payload = {
+                    "systemId": system_id,
+                    "name": table.get("name"),
+                    "description": table.get("description", ""),
+                    "fields": table.get("fields", []),
+                }
+                t_req = _internal_request(original_request, "POST", f"/api/systems/{system_id}/tables", table_payload)
+                t_code, t_data = _call(api_views.system_tables_view, t_req, pk=system_id)
+                if t_code < 400:
+                    created_tables.append(t_data)
+                else:
+                    table_errors.append({"table": table.get("name") or "Tabla", "error": t_data})
+
+            result = dict(data)
+            result["tables"] = created_tables
+            if table_errors:
+                result["table_errors"] = table_errors
+            return ActionResult(True, 201, data=result)
 
         if action == "update_system":
             system_id = int(payload["systemId"])

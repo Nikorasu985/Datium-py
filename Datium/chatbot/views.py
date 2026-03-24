@@ -440,6 +440,9 @@ def execute_action_view(request):
                     name = r.data.get("name", "Sistema")
                     if sid:
                         links.append({"label": f"Abrir sistema {name}", "url": f"/system.html?id={sid}"})
+                    for t in r.data.get("tables", []) or []:
+                        if isinstance(t, dict) and t.get("id"):
+                            links.append({"label": f"Abrir tabla {t.get('name', 'Tabla')}", "url": f"/table.html?id={t['id']}"})
                 if action_name in ("create_table", "update_table"):
                     tid = r.data.get("id")
                     name = r.data.get("name", "Tabla")
