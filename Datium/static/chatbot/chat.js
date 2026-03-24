@@ -3,6 +3,7 @@ let isWaitingResponse = false;
 let selectedFiles = [];
 let currentXhr = null;
 let currentConversationId = null;
+let lastUndoActions = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     checkAiStatus();
@@ -132,9 +133,54 @@ async function checkAiStatus() {
     }
 }
 
+function renderWelcomeState() {
+    const container = document.getElementById('chatMessages');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="max-w-4xl mx-auto w-full">
+            <div class="rounded-[2rem] border border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/40 backdrop-blur-xl shadow-sm p-6 md:p-8">
+                <div class="flex items-start gap-4">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
+                        <span class="material-symbols-outlined text-3xl">auto_awesome</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-2xl md:text-3xl font-black text-[#111418] dark:text-white">Datium AI</h2>
+                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.18em] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40">Lista ✨</span>
+                        </div>
+                        <p class="mt-2 text-sm md:text-base text-gray-600 dark:text-gray-300 leading-relaxed">Puedo ayudarte a crear, editar, consultar y ordenar tu sistema con lenguaje natural. Tengo el mismo acceso operativo que tu sesión actual, pero con validaciones antes de tocar cosas sensibles. 🛡️</p>
+                    </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-3 mt-6">
+                    <button onclick="setSuggestion('Crea una tabla de asistentes para un evento con nombre, apellido y asistió')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
+                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">Crear estructura</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Tabla para asistencia de evento ✅</div>
+                    </button>
+                    <button onclick="setSuggestion('Muéstrame las tablas del sistema actual y dime cuál conviene mejorar')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
+                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">Analizar</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Revisar tablas, campos y oportunidades 📊</div>
+                    </button>
+                    <button onclick="setSuggestion('Quiero registrar asistentes con nombre, apellido, empresa y estado de ingreso')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
+                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">CRUD guiado</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Diseñar tablas y campos exactos 🧩</div>
+                    </button>
+                    <button onclick="setSuggestion('Muéstrame los últimos cambios importantes y qué debería auditar')" class="text-left p-4 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-primary/30 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all">
+                        <div class="text-xs font-black uppercase tracking-widest text-primary mb-1">Auditoría</div>
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Cambios recientes, riesgos y trazabilidad 🔍</div>
+                    </button>
+                </div>
+                <div class="mt-5 flex flex-wrap gap-2 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Aceptar / Cancelar</span>
+                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Undo después de ejecutar</span>
+                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Contraseña para eliminar</span>
+                    <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">Auditoría integrada</span>
+                </div>
+            </div>
+        </div>`;
+}
+
 async function loadChatHistory() {
     const container = document.getElementById('chatMessages');
-    const clearBtn = document.getElementById('btnClearHistory');
     if (!container) return;
     try {
         if (!currentConversationId) return;
@@ -150,7 +196,7 @@ async function loadChatHistory() {
                     addMessageToUI(msg.role, msg.content, false);
                 });
             } else {
-                container.innerHTML = '<div class="text-xs text-gray-400 text-center py-10">Inicio del chat</div>';
+                renderWelcomeState();
             }
         }
     } catch (e) {
@@ -191,8 +237,8 @@ async function executeClearHistory() {
             isWaitingResponse = false;
             toggleInputState(true);
             const container = document.getElementById('chatMessages');
-            container.innerHTML = '<div class="text-xs text-gray-400 text-center py-10">Inicio del chat</div>';
-            addMessageToUI('ai', 'Memoria del chat borrada ✅', true);
+            renderWelcomeState();
+            addMessageToUI('ai', 'Listo. Limpié el chat y dejé la vista fresca para arrancar otra vez ✨', true);
         } else {
             if(typeof window.showError === 'function') window.showError('Error al vaciar chat');
         }
@@ -461,7 +507,7 @@ function buildHumanPreviewFromActions(actions) {
     return lines.join('\n').trim();
 }
 
-function addMessageToUI(role, content, animate, actions = null, systemName = null) {
+function addMessageToUI(role, content, animate, actions = null, systemName = null, quickAction = null) {
     const container = document.getElementById('chatMessages');
     
     const wrapper = document.createElement('div');
@@ -500,14 +546,34 @@ function addMessageToUI(role, content, animate, actions = null, systemName = nul
             list.className = 'text-xs text-gray-700 dark:text-gray-200 whitespace-pre-line leading-relaxed';
             const preview = buildHumanPreviewFromActions(actions);
             list.innerText = preview || 'Se ejecutarán cambios en el sistema.';
+
+            const btnRow = document.createElement('div');
+            btnRow.className = 'mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2';
+
+            const btnCancel = document.createElement('button');
+            btnCancel.className = 'w-full py-3 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-black text-[10px] uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-gray-800 transition-all';
+            btnCancel.innerText = 'Cancelar';
+            btnCancel.onclick = () => addMessageToUI('ai', 'Cancelado. No ejecuté ningún cambio 👍', true);
+
             const btn = document.createElement('button');
-            btn.className = 'mt-3 w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all';
-            btn.innerText = 'Validar permisos y ejecutar';
+            btn.className = 'w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all';
+            btn.innerText = 'Aceptar y revisar';
             btn.onclick = () => openAiCrudModal(actions);
+
+            btnRow.appendChild(btnCancel);
+            btnRow.appendChild(btn);
             actionBox.appendChild(title);
             actionBox.appendChild(list);
-            actionBox.appendChild(btn);
+            actionBox.appendChild(btnRow);
             inner.appendChild(actionBox);
+        }
+
+        if (quickAction && quickAction.label && typeof quickAction.onClick === 'function') {
+            const quickBtn = document.createElement('button');
+            quickBtn.className = 'mt-4 px-4 py-2.5 rounded-xl bg-amber-500 text-white font-black text-[10px] uppercase tracking-wider shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all';
+            quickBtn.innerText = quickAction.label;
+            quickBtn.onclick = quickAction.onClick;
+            inner.appendChild(quickBtn);
         }
     }
     else inner.innerText = content;
@@ -586,6 +652,10 @@ function closeConfirmModal(result) {
 
 let pendingAiActions = null;
 
+function isDestructiveAction(actionName) {
+    return ['delete_system', 'delete_table', 'delete_record'].includes(actionName);
+}
+
 function openAiCrudModal(actions) {
     pendingAiActions = actions;
     const modal = document.getElementById('aiCrudModal');
@@ -594,10 +664,13 @@ function openAiCrudModal(actions) {
     const lines = (actions || []).map((a) => {
         const name = a.action || a.type || 'acción';
         const payload = a.payload || {};
-        const hint = payload.name || payload.tableName || payload.tableId || payload.systemId || '';
-        return `• ${name}${hint ? ` (${hint})` : ''}`;
+        const hint = payload.name || payload.tableName || payload.recordId || payload.tableId || payload.systemId || '';
+        const icon = isDestructiveAction(name) ? '🗑️' : (name.startsWith('update_') ? '✏️' : '✨');
+        return `${icon} ${name}${hint ? ` (${hint})` : ''}`;
     });
-    summary.innerText = lines.join('\n') || '—';
+    const hasDelete = (actions || []).some(a => isDestructiveAction(a.action || a.type || ''));
+    const footer = hasDelete ? '\n\n🔒 Esta operación incluye eliminación. Se pedirá contraseña antes de ejecutar.' : '\n\n✅ Podrás deshacer lo ejecutado con Undo si aplica.';
+    summary.innerText = (lines.join('\n') || '—') + footer;
     modal.classList.remove('hidden');
 }
 
@@ -607,21 +680,26 @@ function closeAiCrudModal(confirmed) {
     if (confirmed && pendingAiActions) {
         const actions = pendingAiActions;
         pendingAiActions = null;
+        const needsPassword = actions.some(a => isDestructiveAction(a.action || a.type || ''));
+        if (needsPassword) {
+            promptPassword((password) => executeAiActions(actions, { password }));
+            return;
+        }
         executeAiActions(actions);
     } else {
         pendingAiActions = null;
-        if (confirmed === false) addMessageToUI('ai', 'Operación cancelada.', true);
+        if (confirmed === false) addMessageToUI('ai', 'Operación cancelada. No toqué nada 👌', true);
     }
 }
 
-async function executeAiActions(actions) {
-    addMessageToUI('ai', 'Ejecutando acciones...', true);
+async function executeAiActions(actions, extra = {}) {
+    addMessageToUI('ai', 'Voy con eso. Ejecutando cambios en Datium... ⚙️', true);
     const typingId = addTypingIndicator();
     try {
         const res = await fetch('/chatbot/execute/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-            body: JSON.stringify({ actions: actions })
+            body: JSON.stringify({ actions: actions, ...(extra || {}) })
         });
         removeTypingIndicator(typingId);
         const data = await res.json();
@@ -633,21 +711,41 @@ async function executeAiActions(actions) {
         const results = (data && data.results) ? data.results : [];
         const okCount = results.filter(r => r.ok).length;
         const errCount = results.length - okCount;
+        lastUndoActions = (data && data.undo_actions) ? data.undo_actions : [];
 
-        let msg = `Resultado: ${okCount} OK`;
-        if (errCount > 0) msg += `, ${errCount} con error`;
-
-        const links = results.flatMap(r => (r.links || [])).filter(l => l && l.url && l.label).slice(0, 8);
-
-        if (links.length > 0) {
-            msg += '\n\n### Abrir cambios\n' + links.map(l => `- ${l.label}: ${l.url}`).join('\n');
+        let msg = `Listo ✨\n\n- Ejecutadas correctamente: ${okCount}`;
+        if (errCount > 0) msg += `\n- Con error: ${errCount}`;
+        if (results.some(r => r.error)) {
+            msg += `\n\nDetalles\n` + results.filter(r => r.error).map(r => `- ${r.error}`).join('\n');
         }
 
-        addMessageToUI('ai', msg, true);
+        const links = results.flatMap(r => (r.links || [])).filter(l => l && l.url && l.label).slice(0, 8);
+        if (links.length > 0) {
+            msg += '\n\nAbrir cambios\n' + links.map(l => `- ${l.label}: ${l.url}`).join('\n');
+        }
+
+        if (lastUndoActions.length > 0) {
+            msg += '\n\nPuedes deshacer este cambio con el botón Undo ↩️';
+        }
+
+        addMessageToUI('ai', msg, true, null, null, lastUndoActions.length > 0 ? {
+            label: 'Undo',
+            onClick: () => executeUndoActions()
+        } : null);
     } catch (e) {
         removeTypingIndicator(typingId);
         addMessageToUI('ai', 'Error de conexión.', true);
     }
+}
+
+async function executeUndoActions() {
+    if (!lastUndoActions || lastUndoActions.length === 0) {
+        addMessageToUI('ai', 'No tengo una acción reciente para deshacer.', true);
+        return;
+    }
+    const actions = [...lastUndoActions];
+    lastUndoActions = [];
+    await executeAiActions(actions);
 }
 
 function initVoice() {

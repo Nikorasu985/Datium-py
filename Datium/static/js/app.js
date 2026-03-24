@@ -206,8 +206,8 @@ function promptPassword(onSuccess) {
     if (existing) existing.remove();
 
     const html = `
-        <div id="password-prompt-modal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
-            <div class="bg-white dark:bg-[#1e293b] rounded-2xl p-6 shadow-2xl max-w-sm w-full transform scale-95 transition-transform duration-300">
+        <div id="password-prompt-modal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-transparent opacity-0 transition-opacity duration-300">
+            <div class="bg-white dark:bg-[#151f2b] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center transform scale-95 transition-transform duration-300">
                 <div class="flex flex-col gap-4 text-center">
                     <div class="mx-auto p-3 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500">
                         <span class="material-symbols-outlined text-3xl">lock</span>
@@ -271,7 +271,7 @@ function promptPassword(onSuccess) {
 
             if (res.ok) {
                 close();
-                if (onSuccess) onSuccess();
+                if (onSuccess) onSuccess(password);
             } else {
                 const data = await res.json();
                 errorMsg.innerText = data.error || "Contraseña incorrecta";
@@ -324,4 +324,178 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.onclick = toggleSidebar;
         document.body.appendChild(overlay);
     }
+    
+    // Check if user is admin to inject Panel Admin button
+    if(getToken() && !window.location.pathname.includes('login.html') && !window.location.pathname.includes('register.html')) {
+        apiFetch('/user/profile').then(async res => {
+            if(res && res.ok){
+                const user = await res.json();
+                if(user.role === 'admin') {
+                    const nav = document.querySelector('aside nav');
+                    if(nav && !document.querySelector('a[href="admin.html"]')) {
+                        const adminLink = `
+                        <a href="admin.html" class="flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl text-sm font-bold transition-colors mt-2 border-t border-gray-100 dark:border-gray-800 pt-4">
+                            <span class="material-symbols-outlined">shield_person</span>
+                            Panel Admin
+                        </a>`;
+                        nav.insertAdjacentHTML('beforeend', adminLink);
+                    }
+                }
+            }
+        }).catch(e => console.warn(e));
+    }
 });
+
+// =========================================
+// UNIVERSAL REPORT SYSTEM
+// =========================================
+function injectReportSystem() {
+    if(!getToken()) return; // Solo usuarios logueados
+    
+    // 1. Cargar html2canvas
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(script);
+
+    // 2. Botón Flotante
+    const fabHtml = `
+        <button onclick="openReportModal()" class="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white p-4 rounded-full shadow-2xl flex items-center justify-center z-50 group transition-all hover:scale-110">
+            <span class="material-symbols-outlined">bug_report</span>
+            <span class="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold group-hover:ml-2">Reportar Problema</span>
+        </button>
+    `;
+    document.body.insertAdjacentHTML('beforeend', fabHtml);
+
+    // 3. Modal de Reporte
+    const modalHtml = `
+        <div id="reportModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl transform transition-transform scale-95 opacity-0 duration-200" id="reportModalContent">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl">
+                        <span class="material-symbols-outlined font-bold">bug_report</span>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 dark:text-white truncate">Reportar un Problema</h3>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Título del problema</label>
+                        <input type="text" id="reportTitle" placeholder="Ej. El botón no funciona" class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white focus:border-red-500 focus:ring-0 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Descripción Detallada</label>
+                        <textarea id="reportSummary" rows="4" placeholder="¿Qué estabas intentando hacer? ¿Qué ocurrió?" class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white focus:border-red-500 focus:ring-0 transition-colors resize-none"></textarea>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
+                        <span class="material-symbols-outlined text-amber-500 mt-0.5">info</span>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Al enviar, se tomará automáticamente una captura de pantalla de tu vista actual para adjuntarla al reporte.</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-8">
+                    <button onclick="closeReportModal()" class="px-5 py-2.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
+                    <button onclick="submitReport()" class="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all flex items-center gap-2">
+                        <span>Enviar Reporte</span>
+                        <span class="material-symbols-outlined text-sm">send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+window.openReportModal = function() {
+    const modal = document.getElementById('reportModal');
+    const content = document.getElementById('reportModalContent');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+    }, 10);
+};
+
+window.closeReportModal = function() {
+    const modal = document.getElementById('reportModal');
+    const content = document.getElementById('reportModalContent');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.getElementById('reportTitle').value = '';
+        document.getElementById('reportSummary').value = '';
+    }, 200);
+};
+
+window.submitReport = async function() {
+    const title = document.getElementById('reportTitle').value.trim();
+    const summary = document.getElementById('reportSummary').value.trim();
+    
+    if (!title || !summary) return showError('Por favor completa todos los campos');
+
+    closeReportModal();
+    showLoading('Tomando captura de pantalla...');
+
+    try {
+        if (typeof html2canvas === 'undefined') {
+            throw new Error('La librería de capturas aún no carga.');
+        }
+
+        const fab = document.querySelector('button[onclick="openReportModal()"]');
+        if (fab) fab.style.display = 'none';
+
+        const canvas = await html2canvas(document.body, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: document.documentElement.classList.contains('dark') ? '#101922' : '#f6f7f8'
+        });
+
+        if (fab) fab.style.display = '';
+
+        showLoading('Subiendo evidencia...');
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        const formData = new FormData();
+        formData.append('file', blob, 'report.png');
+
+        const token = getToken();
+        let screenshotUrl = '';
+        
+        // This fails softly if the image is too big for the plan, but we'll try anyway
+        try {
+            const uploadRes = await fetch(API_URL + '/upload/image', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token},
+                body: formData
+            });
+
+            if (uploadRes.ok) {
+                const data = await uploadRes.json();
+                screenshotUrl = data.url;
+            }
+        } catch(e) {
+            console.warn('Screenshot upload issue', e);
+        }
+
+        showLoading('Enviando reporte...');
+        const repRes = await apiFetch('/user/reports', {
+            method: 'POST',
+            body: JSON.stringify({
+                title, summary, screenshot_url: screenshotUrl
+            })
+        });
+
+        if (repRes.ok) {
+            showSuccess('Reporte enviado correctamente. El administrador lo revisará pronto.');
+        } else {
+            showError('Hubo un error al enviar el reporte');
+        }
+
+    } catch(e) {
+        console.error(e);
+        hideLoading();
+        showError('No se pudo procesar tu reporte. ' + e.message);
+    }
+};
+
+document.addEventListener('DOMContentLoaded', injectReportSystem);
+

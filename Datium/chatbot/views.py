@@ -17,7 +17,123 @@ from .settings_panel import ai_settings_view
 from .system_context import get_active_system_id_from_request
 from .action_router import route_action
 from .models import ChatConversation, ChatMessage
-from api.models import AuditLog, System, SystemRecord, SystemTable, User
+from api.models import AuditLog, SecurityAudit, System, SystemField, SystemFieldOption, SystemRecord, SystemRecordValue, SystemTable, User
+
+
+def _serialize_fields_for_restore(table_id: int) -> list[dict]:
+    fields = SystemField.objects.filter(table_id=table_id).order_by("order_index")
+    result = []
+    for f in fields:
+        item = {
+            "name": f.name,
+            "type": f.type,
+            "required": f.required,
+        }
+        if f.type == "select":
+            item["options"] = list(SystemFieldOption.objects.filter(field=f).values_list("value", flat=True))
+        if f.type == "relation":
+            item["relatedTableId"] = f.related_table_id
+            item["relatedDisplayFieldId"] = f.related_display_field_id
+            item["relatedTableName"] = f.related_table.name if f.related_table_id else None
+        result.append(item)
+    return result
+
+
+
+def _serialize_record_values_for_restore(record_id: int) -> dict:
+    values = {}
+    for rv in SystemRecordValue.objects.filter(record_id=record_id).select_related("field"):
+        values[str(rv.field_id)] = rv.value or ""
+    return values
+
+
+
+def _snapshot_undo_action(action_name: str, payload: dict) -> dict | None:
+    if action_name == "update_system":
+        sid = payload.get("systemId") or payload.get("id")
+        prev = System.objects.filter(id=int(sid)).first() if sid else None
+        if prev:
+            return {
+                "action": "update_system",
+                "payload": {
+                    "systemId": prev.id,
+                    "name": prev.name,
+                    "description": prev.description or "",
+                    "imageUrl": prev.image_url or "",
+                    "securityMode": prev.security_mode or "none",
+                    "generalPassword": prev.general_password or "",
+                },
+            }
+
+    if action_name == "update_table":
+        table_id = payload.get("tableId")
+        prev = SystemTable.objects.filter(id=int(table_id)).first() if table_id else None
+        if prev:
+            return {
+                "action": "update_table",
+                "payload": {
+                    "systemId": prev.system_id,
+                    "tableId": prev.id,
+                    "name": prev.name,
+                    "description": prev.description or "",
+                    "fields": _serialize_fields_for_restore(prev.id),
+                },
+            }
+
+    if action_name == "delete_table":
+        table_id = payload.get("tableId")
+        prev = SystemTable.objects.filter(id=int(table_id)).first() if table_id else None
+        if prev:
+            return {
+                "action": "create_table",
+                "payload": {
+                    "systemId": prev.system_id,
+                    "name": prev.name,
+                    "description": prev.description or "",
+                    "fields": _serialize_fields_for_restore(prev.id),
+                },
+            }
+
+    if action_name == "update_record":
+        record_id = payload.get("recordId")
+        table_id = payload.get("tableId")
+        prev = SystemRecord.objects.filter(id=int(record_id), table_id=int(table_id)).first() if record_id and table_id else None
+        if prev:
+            return {
+                "action": "update_record",
+                "payload": {
+                    "tableId": prev.table_id,
+                    "recordId": prev.id,
+                    "values": _serialize_record_values_for_restore(prev.id),
+                },
+            }
+
+    if action_name == "delete_record":
+        record_id = payload.get("recordId")
+        table_id = payload.get("tableId")
+        prev = SystemRecord.objects.filter(id=int(record_id), table_id=int(table_id)).first() if record_id and table_id else None
+        if prev:
+            return {
+                "action": "create_record",
+                "payload": {
+                    "tableId": prev.table_id,
+                    "values": _serialize_record_values_for_restore(prev.id),
+                },
+            }
+
+    return None
+
+
+def _post_undo_action(action_name: str, payload: dict, result_data) -> dict | None:
+    data = result_data if isinstance(result_data, dict) else {}
+    if action_name == "create_system" and data.get("id"):
+        return {"action": "delete_system", "payload": {"systemId": data["id"]}}
+    if action_name == "create_table" and data.get("id"):
+        return {"action": "delete_table", "payload": {"systemId": data.get("systemId") or payload.get("systemId"), "tableId": data["id"]}}
+    if action_name == "create_record" and data.get("id"):
+        return {"action": "delete_record", "payload": {"tableId": payload.get("tableId"), "recordId": data["id"]}}
+    return None
+
 
 
 def _get_conversation_id_from_request(request):
@@ -248,6 +364,14 @@ def execute_action_view(request):
     except Exception:
         actions = []
 
+    ip = request.META.get("REMOTE_ADDR", "") or ""
+    undo_actions = []
+    password = ""
+    try:
+        password = (request.data.get("password") or "").strip()
+    except Exception:
+        password = ""
+
     results = []
     for a in actions:
         if not isinstance(a, dict):
@@ -256,6 +380,7 @@ def execute_action_view(request):
 
         action_name = a.get("action") or a.get("type")
         payload = a.get("payload") or a
+        is_delete = str(action_name).startswith("delete_")
 
         try:
             system_id = payload.get("systemId")
@@ -268,14 +393,41 @@ def execute_action_view(request):
                     if record_id:
                         system_id = SystemRecord.objects.filter(id=int(record_id)).values_list("table__system_id", flat=True).first()
             system = System.objects.filter(id=int(system_id)).first() if system_id else None
+        except Exception:
+            system = None
+
+        if is_delete:
+            if not password or user.password_hash != password:
+                if system:
+                    SecurityAudit.objects.create(
+                        user=user,
+                        system=system,
+                        severity="high",
+                        event="IA_DELETE_BLOCKED_PASSWORD",
+                        details=json.dumps(payload, ensure_ascii=False)[:2000],
+                    )
+                results.append({'ok': False, 'status_code': 401, 'error': 'Se requiere contraseña válida para eliminar.'})
+                continue
+
+        undo_candidate = _snapshot_undo_action(action_name, payload)
+
+        try:
             if system:
                 AuditLog.objects.create(
                     user=user,
                     system=system,
                     action=f"IA_{str(action_name).upper()}",
                     details=json.dumps(payload, ensure_ascii=False)[:2000],
-                    ip=request.META.get("REMOTE_ADDR", "") or "",
+                    ip=ip,
                 )
+                if is_delete:
+                    SecurityAudit.objects.create(
+                        user=user,
+                        system=system,
+                        severity="high",
+                        event=f"IA_{str(action_name).upper()}",
+                        details=json.dumps(payload, ensure_ascii=False)[:2000],
+                    )
         except Exception:
             pass
 
@@ -293,12 +445,16 @@ def execute_action_view(request):
                     name = r.data.get("name", "Tabla")
                     if tid:
                         links.append({"label": f"Abrir tabla {name}", "url": f"/table.html?id={tid}"})
+            if r.ok:
+                undo_candidate = undo_candidate or _post_undo_action(action_name, payload, r.data)
+                if undo_candidate:
+                    undo_actions.append(undo_candidate)
         except Exception:
             links = []
 
-        results.append({'ok': r.ok, 'status_code': r.status_code, 'data': r.data, 'error': r.error, 'links': links})
+        results.append({'ok': r.ok, 'status_code': r.status_code, 'data': r.data, 'error': r.error, 'links': links, 'undo_action': undo_candidate})
 
-    return JsonResponse({'status': 'success', 'results': results})
+    return JsonResponse({'status': 'success', 'results': results, 'undo_actions': undo_actions})
 
 @api_view(['GET'])
 def model_status(request):
