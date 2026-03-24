@@ -55,16 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function conversationStorageKey() {
-    const sysId = document.getElementById('systemSelector')?.value || 'global';
-    return `datium_chat_conversation_${sysId}`;
+    return 'datium_chat_conversation_global';
 }
 
 async function initConversations() {
-    await loadConversations();
     const stored = localStorage.getItem(conversationStorageKey());
     if (stored) currentConversationId = stored;
-    const selector = document.getElementById('conversationSelector');
-    if (selector && currentConversationId) selector.value = String(currentConversationId);
     if (!currentConversationId) {
         await createNewConversation(true);
     } else {
@@ -72,52 +68,21 @@ async function initConversations() {
     }
 }
 
-async function loadConversations() {
-    const selector = document.getElementById('conversationSelector');
-    if (!selector) return;
-    selector.innerHTML = '<option value="">Cargando...</option>';
-    try {
-        const sysId = document.getElementById('systemSelector')?.value;
-        const url = '/chatbot/conversations/' + (sysId ? `?system_id=${encodeURIComponent(sysId)}` : '');
-        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
-        if (!res.ok) return;
-        const data = await res.json();
-        const convs = data.conversations || [];
-        selector.innerHTML = '';
-        convs.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.innerText = c.title || `Conversación #${c.id}`;
-            selector.appendChild(opt);
-        });
-        selector.onchange = async () => {
-            currentConversationId = selector.value || null;
-            if (currentConversationId) localStorage.setItem(conversationStorageKey(), String(currentConversationId));
-            await loadChatHistory();
-        };
-    } catch (e) {
-        console.error('Error loading conversations', e);
-    }
-}
-
 async function createNewConversation(silent = false) {
     try {
-        const sysId = document.getElementById('systemSelector')?.value;
-        const res = await fetch('/chatbot/conversations/' + (sysId ? `?system_id=${encodeURIComponent(sysId)}` : ''), {
+        const res = await fetch('/chatbot/conversations/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-            body: JSON.stringify({ title: 'Nueva conversación' })
+            body: JSON.stringify({ title: 'Chat Global' })
         });
         if (!res.ok) return;
         const data = await res.json();
         const conv = data.conversation;
         currentConversationId = conv?.id || null;
-        if (currentConversationId) localStorage.setItem(conversationStorageKey(), String(currentConversationId));
-        await loadConversations();
-        const selector = document.getElementById('conversationSelector');
-        if (selector && currentConversationId) selector.value = String(currentConversationId);
-        await loadChatHistory();
-        if (!silent) addMessageToUI('ai', 'Nueva conversación creada 😊', true);
+        if (currentConversationId) {
+            localStorage.setItem(conversationStorageKey(), String(currentConversationId));
+            await loadChatHistory();
+        }
     } catch (e) {
         console.error('Error creating conversation', e);
     }
@@ -180,17 +145,12 @@ async function loadChatHistory() {
         if (res.ok) {
             const data = await res.json();
             if (data.status === 'success' && data.history.length > 0) {
-                const welcome = document.getElementById('chatWelcome');
                 container.innerHTML = '';
-                if (welcome) container.appendChild(welcome);
-                
                 data.history.forEach(msg => {
                     addMessageToUI(msg.role, msg.content, false);
                 });
             } else {
-                const welcome = document.getElementById('chatWelcome');
-                container.innerHTML = '';
-                if (welcome) container.appendChild(welcome);
+                container.innerHTML = '<div class="text-xs text-gray-400 text-center py-10">Inicio del chat</div>';
             }
         }
     } catch (e) {
@@ -199,35 +159,46 @@ async function loadChatHistory() {
 }
 
 async function clearHistory() {
-    showConfirmation('¿Deseas vaciar el historial de este chat?', async (confirmed) => {
-        if (!confirmed) return;
-        try {
-            if (!currentConversationId) return;
-            const url = `/chatbot/conversations/${currentConversationId}/`;
-            const res = await fetch(url, { 
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } 
-            });
-            if (res.ok) {
-                pendingAiActions = null;
-                selectedFiles = [];
-                renderFilePreviews();
-                if (currentXhr) {
-                    try { currentXhr.abort(); } catch (e) {}
-                    currentXhr = null;
-                }
-                isWaitingResponse = false;
-                toggleInputState(true);
-                const container = document.getElementById('chatMessages');
-                const welcome = document.getElementById('chatWelcome');
-                container.innerHTML = '';
-                if (welcome) container.appendChild(welcome);
-                addMessageToUI('ai', 'Memoria del chat borrada ✅', true);
-            }
-        } catch (e) {
-            console.error("Error clearing history", e);
+    // Check if promptPassword is globally available from app.js
+    if (typeof promptPassword === 'function') {
+        promptPassword(async () => {
+            executeClearHistory();
+        });
+    } else {
+        // Fallback if missing
+        if (confirm('¿Vaciar historial del chat?')) {
+            executeClearHistory();
         }
-    });
+    }
+}
+
+async function executeClearHistory() {
+    try {
+        if (!currentConversationId) return;
+        const url = `/chatbot/conversations/${currentConversationId}/`;
+        const res = await fetch(url, { 
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } 
+        });
+        if (res.ok) {
+            pendingAiActions = null;
+            selectedFiles = [];
+            renderFilePreviews();
+            if (currentXhr) {
+                try { currentXhr.abort(); } catch (e) {}
+                currentXhr = null;
+            }
+            isWaitingResponse = false;
+            toggleInputState(true);
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = '<div class="text-xs text-gray-400 text-center py-10">Inicio del chat</div>';
+            addMessageToUI('ai', 'Memoria del chat borrada ✅', true);
+        } else {
+            if(typeof window.showError === 'function') window.showError('Error al vaciar chat');
+        }
+    } catch (e) {
+        console.error("Error clearing history", e);
+    }
 }
 
 function handleFileSelect(input) {
@@ -346,9 +317,6 @@ async function sendMessage() {
                     if (data.conversation && data.conversation.id) {
                         currentConversationId = data.conversation.id;
                         localStorage.setItem(conversationStorageKey(), String(currentConversationId));
-                        await loadConversations();
-                        const selector = document.getElementById('conversationSelector');
-                        if (selector) selector.value = String(currentConversationId);
                     }
                     addMessageToUI('ai', data.content, true, data.actions);
                 } else {
@@ -472,13 +440,21 @@ function buildHumanPreviewFromActions(actions) {
     a.forEach(x => {
         const action = x?.action || x?.type;
         const payload = x?.payload || {};
-        if (action === 'bootstrap_attendance_schema') {
-            pushTable('Estudiantes', ['Nombre', 'Documento', 'Correo', 'Grado', 'Activo']);
-            pushTable('Asistencias', ['Fecha', 'Estudiante (relación)', 'Estado (Presente, Ausente, Tarde, Justificado)', 'Observación']);
-        }
+
         if (action === 'create_table' && payload?.name) {
-            const f = (payload.fields || []).map(fd => fd.name).filter(Boolean);
+            const f = (payload.fields || []).map(fd => {
+                if (!fd?.name) return null;
+                const extras = [];
+                if (fd.type === 'relation' && fd.relatedTableName) extras.push(`relación con ${fd.relatedTableName}`);
+                if (fd.type === 'select' && Array.isArray(fd.options) && fd.options.length) extras.push(fd.options.join(', '));
+                return extras.length ? `${fd.name} (${extras.join(' · ')})` : fd.name;
+            }).filter(Boolean);
             pushTable(payload.name, f.length ? f : ['(Sin campos definidos)']);
+        }
+
+        if (action === 'update_table' && payload?.name) {
+            const f = (payload.fields || []).map(fd => fd?.name).filter(Boolean);
+            pushTable(`Actualizar ${payload.name}`, f.length ? f : ['(Sin cambios de campos visibles)']);
         }
     });
 
@@ -772,12 +748,4 @@ async function saveAiSettings(extra = null) {
         console.error('Error saving AI settings', e);
     }
 }
-.ok) return;
-        const data = await res.json();
-        aiSettingsCache = data.config || payload;
-        renderAiSettings();
-        checkAiStatus();
-    } catch (e) {
-        console.error('Error saving AI settings', e);
-    }
-}
+

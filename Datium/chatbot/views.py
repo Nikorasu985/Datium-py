@@ -20,39 +20,6 @@ from .models import ChatConversation, ChatMessage
 from api.models import AuditLog, System, SystemRecord, SystemTable, User
 
 
-def _structured_response(*, title: str, resumen: str, datos_lines: list[str], siguientes: list[str]) -> str:
-    parts = [title.strip(), "", resumen.strip()]
-    if datos_lines:
-        parts += ["", "Datos", ""] + datos_lines
-    if siguientes:
-        parts += ["", "Siguientes pasos", ""] + [f"- {s}" for s in siguientes]
-    return "\n".join([p for p in parts if p is not None]).strip()
-
-
-def _attendance_preview_lines() -> list[str]:
-    return [
-        "Tabla: Estudiantes",
-        "- Nombre",
-        "- Documento",
-        "- Correo",
-        "- Grado",
-        "- Activo",
-        "",
-        "Tabla: Asistencias",
-        "- Fecha",
-        "- Estudiante (relación)",
-        "- Estado (Presente, Ausente, Tarde, Justificado)",
-        "- Observación",
-    ]
-
-
-def _should_bootstrap_attendance(message: str) -> bool:
-    m = (message or "").lower().strip()
-    if any(k in m for k in ("asistencia", "asistencias")):
-        return True
-    return m in ("crealo ya", "créalo ya", "crealo", "créalo", "hazlo", "hacerlo", "crea ya", "crear ya")
-
-
 def _get_conversation_id_from_request(request):
     try:
         cid = request.data.get("conversation_id")
@@ -217,31 +184,6 @@ def chat_view(request, system_id=None):
             content=(user_message_content + ("\n" + file_context if file_context else "")).strip(),
         )
 
-        if selected_system_id and _should_bootstrap_attendance(user_message_content):
-            existing = set(SystemTable.objects.filter(system_id=selected_system_id).values_list("name", flat=True))
-            if not {"Estudiantes", "Asistencias"}.issubset(existing):
-                user_name = (user.name or user.email or "Usuario").strip()
-                content = _structured_response(
-                    title=f"{user_name}, voy a crear el sistema de asistencia 😊",
-                    resumen="Se creará la estructura base para gestionar asistencia estudiantil en el sistema seleccionado.",
-                    datos_lines=_attendance_preview_lines(),
-                    siguientes=["Validar permisos y ejecutar cambios."],
-                )
-                actions = [{"action": "bootstrap_attendance_schema", "payload": {"systemId": selected_system_id}}]
-                ChatMessage.objects.create(user=user, conversation=conv, system_id=selected_system_id, role='assistant', content=content)
-                ChatConversation.objects.filter(id=conv.id).update(title="Asistencias - Estructura base")
-                return JsonResponse(
-                    {
-                        "status": "success",
-                        "content": content,
-                        "confirmation_required": True,
-                        "summary": "Crear esquema base: Estudiantes y Asistencias",
-                        "actions": actions,
-                        "conversation": {"id": conv.id, "title": "Asistencias - Estructura base"},
-                    },
-                    status=201,
-                )
-
         system_prompt = build_system_prompt(
             user=user,
             system_id=selected_system_id,
@@ -273,28 +215,8 @@ def chat_view(request, system_id=None):
                         if a.get("action") in ("create_table", "update_table", "delete_table", "list_tables"):
                             payload["systemId"] = selected_system_id
 
-            user_lower = (user_message_content or "").lower()
-            if selected_system_id and not actions and _should_bootstrap_attendance(user_message_content):
-                actions = [
-                    {
-                        "action": "bootstrap_attendance_schema",
-                        "payload": {"systemId": selected_system_id},
-                    }
-                ]
-                parsed["confirmation_required"] = True
-                parsed["summary"] = "Crear esquema base: Estudiantes y Asistencias"
-
             if actions and not content:
-                content = _structured_response(
-                    title="Acción propuesta",
-                    resumen=parsed.get("summary", "Se propone ejecutar cambios en el sistema."),
-                    datos_lines=[],
-                    siguientes=["Validar permisos y ejecutar cambios."],
-                )
-
-            user_name = (user.name or user.email or "Usuario").strip()
-            if user_name and not content.startswith(user_name):
-                content = f"{user_name}: {content}"
+                content = parsed.get("summary", "Se propone ejecutar cambios en el sistema.")
             ChatMessage.objects.create(user=user, conversation=conv, system_id=selected_system_id, role='assistant', content=content)
             return JsonResponse(
                 {
@@ -371,13 +293,6 @@ def execute_action_view(request):
                     name = r.data.get("name", "Tabla")
                     if tid:
                         links.append({"label": f"Abrir tabla {name}", "url": f"/table.html?id={tid}"})
-                if action_name == "bootstrap_attendance_schema":
-                    sid = r.data.get("systemId")
-                    if sid:
-                        links.append({"label": "Abrir sistema (Asistencias)", "url": f"/system.html?id={sid}"})
-                    for t in r.data.get("tables", []) or []:
-                        if isinstance(t, dict) and t.get("id"):
-                            links.append({"label": f"Abrir tabla {t.get('name', 'Tabla')}", "url": f"/table.html?id={t['id']}"})
         except Exception:
             links = []
 

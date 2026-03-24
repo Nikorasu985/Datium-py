@@ -191,47 +191,6 @@ def route_action(original_request, action: str, payload: Dict[str, Any]) -> Acti
             code, data = _call(api_views.table_move_view, req, pk=table_id)
             return ActionResult(code < 400, code, data=data)
 
-        if action == "bootstrap_attendance_schema":
-            system_id = int(payload.get("systemId") or 0)
-            if not system_id:
-                return ActionResult(False, 400, error="systemId requerido para crear esquema.")
-            if uid and not System.objects.filter(id=system_id, owner_id=uid).exists():
-                return ActionResult(False, 403, error="No tienes permiso para modificar este sistema.")
-
-            def _create_table(name: str, fields: list) -> Tuple[bool, Any]:
-                req = _internal_request(
-                    original_request,
-                    "POST",
-                    f"/api/systems/{system_id}/tables",
-                    {"name": name, "description": "", "fields": fields, "systemId": system_id},
-                )
-                code, data = _call(api_views.system_tables_view, req, pk=system_id)
-                return code < 400, data
-
-            estudiantes_fields = [
-                {"name": "Nombre", "type": "text", "required": True},
-                {"name": "Documento", "type": "text", "required": False},
-                {"name": "Correo", "type": "text", "required": False},
-                {"name": "Grado", "type": "text", "required": False},
-                {"name": "Activo", "type": "boolean", "required": True},
-            ]
-            asistencias_fields = [
-                {"name": "Fecha", "type": "date", "required": True},
-                {"name": "Estudiante", "type": "relation", "required": True},
-                {"name": "Estado", "type": "select", "required": True, "options": ["Presente", "Ausente", "Tarde", "Justificado"]},
-                {"name": "Observación", "type": "text", "required": False},
-            ]
-
-            ok1, t1 = _create_table("Estudiantes", estudiantes_fields)
-            if not ok1:
-                return ActionResult(False, 400, data=t1, error="No se pudo crear la tabla Estudiantes.")
-
-            ok2, t2 = _create_table("Asistencias", asistencias_fields)
-            if not ok2:
-                return ActionResult(False, 400, data=t2, error="No se pudo crear la tabla Asistencias.")
-
-            return ActionResult(True, 201, data={"systemId": system_id, "tables": [t1, t2]})
-
         return ActionResult(False, 400, error=f"Acción no soportada: {action}")
     except KeyError as e:
         return ActionResult(False, 400, error=f"Falta parámetro: {e}")
