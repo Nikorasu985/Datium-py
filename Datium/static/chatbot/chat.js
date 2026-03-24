@@ -457,11 +457,20 @@ function autoResizeChatInput() {
     input.style.height = `${Math.min(input.scrollHeight, 220)}px`;
 }
 
+function sanitizeAiText(content) {
+    let t = String(content || '');
+    t = t.replace(/[\uFFFD]/g, '');
+    t = t.replace(/([A-Za-zÁÉÍÓÚáéíóúÑñ])([\u4E00-\u9FFF\u3040-\u30FF]+)(?=[A-Za-zÁÉÍÓÚáéíóúÑñ])/g, '$1 $3');
+    t = t.replace(/([A-Za-zÁÉÍÓÚáéíóúÑñ])([\u4E00-\u9FFF\u3040-\u30FF]+)/g, '$1 ');
+    t = t.replace(/([\u4E00-\u9FFF\u3040-\u30FF]+)([A-Za-zÁÉÍÓÚáéíóúÑñ])/g, ' $2');
+    return t;
+}
+
 function formatAiMessage(content) {
     if (!content) return "No hay contenido para mostrar.";
 
     const normalize = (txt) => {
-        let t = (txt || '').trim();
+        let t = sanitizeAiText((txt || '').trim());
         t = t.replace(/^\s*#+\s*/gm, '');
         t = t.replace(/\?\?\?\?+/g, '');
         t = t.replace(/[^\S\r\n]+/g, ' ');
@@ -559,8 +568,14 @@ function buildHumanPreviewFromActions(actions) {
         }
 
         if (action === 'update_table' && payload?.name) {
-            const f = (payload.fields || []).map(fd => fd?.name).filter(Boolean);
+            const f = (payload.fields || []).map(describeField).filter(Boolean);
             pushTable(`Actualizar ${payload.name}`, f.length ? f : ['(Sin cambios de campos visibles)']);
+        }
+
+        if (action === 'create_record' && payload?.values) {
+            lines.push('Registro nuevo:');
+            Object.entries(payload.values || {}).forEach(([k, v]) => lines.push(`- ${k}: ${v}`));
+            lines.push('');
         }
     });
 

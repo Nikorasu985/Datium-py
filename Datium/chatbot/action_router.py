@@ -11,6 +11,31 @@ from api import views as api_views
 from api.models import System, SystemRecord, SystemTable
 
 
+def _normalize_field_payloads(system_id: int, fields: Any) -> list:
+    normalized = []
+    table_map = {
+        (t.name or '').strip().lower(): t.id
+        for t in SystemTable.objects.filter(system_id=system_id)
+    }
+    for field in fields or []:
+        if not isinstance(field, dict):
+            continue
+        fd = dict(field)
+        rel = fd.get("relatedTableId")
+        if isinstance(rel, str):
+            rel_clean = rel.strip()
+            if rel_clean.isdigit():
+                fd["relatedTableId"] = int(rel_clean)
+            else:
+                mapped = table_map.get(rel_clean.lower())
+                if mapped:
+                    fd["relatedTableId"] = mapped
+                else:
+                    fd.pop("relatedTableId", None)
+        normalized.append(fd)
+    return normalized
+
+
 @dataclass(frozen=True)
 class ActionResult:
     ok: bool
@@ -190,7 +215,9 @@ def route_action(original_request, action: str, payload: Dict[str, Any]) -> Acti
             system_id = int(system_id)
             if uid and not System.objects.filter(id=system_id, owner_id=uid).exists():
                 return ActionResult(False, 403, error="No tienes permiso para crear tablas en este sistema.")
-            req = _internal_request(original_request, "POST", f"/api/systems/{system_id}/tables", payload)
+            normalized_payload = dict(payload)
+            normalized_payload["fields"] = _normalize_field_payloads(system_id, payload.get("fields", []))
+            req = _internal_request(original_request, "POST", f"/api/systems/{system_id}/tables", normalized_payload)
             code, data = _call(api_views.system_tables_view, req, pk=system_id)
             return ActionResult(code < 400, code, data=data)
 
@@ -202,7 +229,9 @@ def route_action(original_request, action: str, payload: Dict[str, Any]) -> Acti
             system_id = int(system_id)
             if uid and not SystemTable.objects.filter(id=table_id, system_id=system_id, system__owner_id=uid).exists():
                 return ActionResult(False, 403, error="No tienes permiso para editar esta tabla.")
-            req = _internal_request(original_request, "PUT", f"/api/systems/{system_id}/tables/{table_id}", payload)
+            normalized_payload = dict(payload)
+            normalized_payload["fields"] = _normalize_field_payloads(system_id, payload.get("fields", []))
+            req = _internal_request(original_request, "PUT", f"/api/systems/{system_id}/tables/{table_id}", normalized_payload)
             code, data = _call(api_views.system_table_detail_view, req, system_pk=system_id, table_pk=table_id)
             return ActionResult(code < 400, code, data=data)
 

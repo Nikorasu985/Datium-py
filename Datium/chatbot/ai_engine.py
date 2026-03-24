@@ -109,6 +109,7 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
         "- Si la acción elimina algo, advierte de forma breve que pedirá contraseña antes de ejecutar.\n"
         "- Si la acción es sensible, menciona que quedará registrada en auditoría.\n"
         "- El texto visible para el usuario debe poder leerse por sí solo, sin mencionar reglas internas ni JSON.\n"
+        "- Nunca mezcles caracteres raros, chino, japonés, símbolos corruptos o texto con encoding roto en una respuesta en español.\n"
         f"- Puedes tratar al usuario por su nombre si fluye natural: {user_name}.\n"
         "- Puedes usar emojis con moderación, solo si encajan.\n"
         "- No uses encabezados Markdown con '#'.\n"
