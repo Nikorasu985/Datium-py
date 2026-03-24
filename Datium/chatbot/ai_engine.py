@@ -120,7 +120,10 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
         "- Luego incluye un bloque ```json con este formato:\n"
         "{\"confirmation_required\": true, \"summary\": \"...\", \"actions\": [{\"action\":\"...\",\"payload\":{...}}]}\n"
         "- Acciones válidas: create_system, update_system, delete_system, list_tables, create_table, update_table, delete_table, list_records, create_record, update_record, delete_record, export_table, move_table.\n"
+        "- Si usas create_system y también vas a crear tablas, DEBES enviarlas dentro de payload.tables, no fuera.\n"
+        "- Estructura correcta para create_system: {action:'create_system', payload:{name, description, imageUrl?, securityMode?, tables:[{name, description?, fields:[...]}]}}.\n"
         "- Para create_table / update_table usa payload.fields con objetos como: {name, type, required, options?, relatedTableId?, relatedDisplayFieldId?}.\n"
+        "- Tipos válidos de campo: text, number, date, boolean, select, relation. Si el usuario pide hora, usa text salvo que exista otro tipo soportado.\n"
         "- Para create_record / update_record usa values por ID de campo cuando esos IDs existan en el contexto.\n"
         "\n"
         "EJEMPLO DE AJUSTE CORRECTO:\n"
@@ -150,6 +153,31 @@ def ollama_chat(model: str, messages: List[Dict[str, str]]) -> str:
             return str(resp)
 
 
+def _normalize_actions(parsed: Dict[str, Any]) -> List[Dict[str, Any]]:
+    actions = parsed.get("actions", [])
+    if not isinstance(actions, list):
+        return []
+
+    normalized: List[Dict[str, Any]] = []
+    shared_tables = parsed.get("tables") if isinstance(parsed.get("tables"), list) else None
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        action_name = action.get("action") or action.get("type")
+        payload = action.get("payload") if isinstance(action.get("payload"), dict) else {}
+
+        if action_name == "create_system":
+            if "tables" not in payload:
+                if isinstance(action.get("tables"), list):
+                    payload["tables"] = action.get("tables")
+                elif shared_tables is not None:
+                    payload["tables"] = shared_tables
+            action["payload"] = payload
+
+        normalized.append(action)
+    return normalized
+
+
 def parse_actions_from_ai_text(ai_text: str) -> Dict[str, Any]:
     result: Dict[str, Any] = {"confirmation_required": False, "summary": "", "actions": []}
     if not ai_text:
@@ -165,8 +193,7 @@ def parse_actions_from_ai_text(ai_text: str) -> Dict[str, Any]:
         if isinstance(parsed, dict):
             result["confirmation_required"] = bool(parsed.get("confirmation_required", False))
             result["summary"] = parsed.get("summary", "") or ""
-            actions = parsed.get("actions", [])
-            result["actions"] = actions if isinstance(actions, list) else []
+            result["actions"] = _normalize_actions(parsed)
         return result
     except Exception:
         return result

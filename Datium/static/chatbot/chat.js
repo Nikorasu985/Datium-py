@@ -744,6 +744,9 @@ async function executeAiActions(actions, extra = {}) {
         if (createdSystem) {
             const tableCount = Array.isArray(createdSystem.tables) ? createdSystem.tables.length : 0;
             msg += `\n\nEl sistema ya quedó listo${tableCount ? ` con ${tableCount} tabla${tableCount === 1 ? '' : 's'}` : ''}.`;
+            if (Array.isArray(createdSystem.table_errors) && createdSystem.table_errors.length) {
+                msg += `\n\nOjo: algunas tablas no se pudieron crear:` + createdSystem.table_errors.map(e => `\n- ${e.table}`).join('');
+            }
         }
 
         if (lastUndoActions.length > 0) {
