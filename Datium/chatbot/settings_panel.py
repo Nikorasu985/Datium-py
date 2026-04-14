@@ -11,7 +11,7 @@ from .permissions import ensure_authenticated
 
 
 # Config simple en memoria (para este proyecto). Si se requiere persistencia, se modela.
-_CONFIG = AiConfig()
+_CONFIG = AiConfig(model="datium-openclaw", enabled=True)
 
 
 @api_view(["GET", "PUT"])

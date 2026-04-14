@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+import requests
 from api.models import System, SystemField, SystemRecord, SystemRecordValue, SystemTable, User
 
 
 @dataclass(frozen=True)
 class AiConfig:
-    model: str = "qwen3.5:cloud"
+    model: str = "datium-openclaw"
     enabled: bool = True
 
 
@@ -142,16 +144,39 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
 
 
 def ollama_chat(model: str, messages: List[Dict[str, str]]) -> str:
-    from ollama import chat  # type: ignore
+    base_url = (os.getenv("OPENCLAW_BASE_URL", "http://127.0.0.1:8676") or "http://127.0.0.1:8676").rstrip("/")
+    secret = (os.getenv("DATIUM_OPENCLAW_SECRET", "") or "").strip()
 
-    resp = chat(model=model, messages=messages)
-    try:
-        return resp.message.content  # type: ignore[attr-defined]
-    except Exception:
+    payload = {
+        "message": (messages[-1].get("content", "") if messages else "").strip(),
+        "system_prompt": (messages[0].get("content", "") if messages else "").strip(),
+        "history": messages[1:-1] if len(messages) > 2 else [],
+        "model": model,
+    }
+    headers = {"Content-Type": "application/json"}
+    if secret:
+        headers["X-OpenClaw-Secret"] = secret
+
+    candidates = [
+        f"{base_url}/chatbot/openclaw-bridge/",
+        f"{base_url}/api/chatbot/openclaw-bridge/",
+    ]
+
+    last_error = None
+    for url in candidates:
         try:
-            return resp["message"]["content"]  # type: ignore[index]
-        except Exception:
-            return str(resp)
+            resp = requests.post(url, json=payload, headers=headers, timeout=120)
+            if resp.ok:
+                data = resp.json()
+                reply = (data.get("reply") or "").strip()
+                if reply:
+                    return reply
+                raise RuntimeError("OpenClaw no devolvió texto")
+            last_error = f"{resp.status_code}: {resp.text[:300]}"
+        except Exception as e:
+            last_error = str(e)
+
+    raise RuntimeError(f"No pude conectar Datium con OpenClaw. {last_error or 'Sin detalles.'}")
 
 
 def _normalize_actions(parsed: Dict[str, Any]) -> List[Dict[str, Any]]:
