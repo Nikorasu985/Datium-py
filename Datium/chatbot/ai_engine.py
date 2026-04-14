@@ -144,39 +144,49 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
 
 
 def ollama_chat(model: str, messages: List[Dict[str, str]]) -> str:
-    base_url = (os.getenv("OPENCLAW_BASE_URL", "http://127.0.0.1:8676") or "http://127.0.0.1:8676").rstrip("/")
-    secret = (os.getenv("DATIUM_OPENCLAW_SECRET", "") or "").strip()
+    try:
+        import subprocess
 
-    payload = {
-        "message": (messages[-1].get("content", "") if messages else "").strip(),
-        "system_prompt": (messages[0].get("content", "") if messages else "").strip(),
-        "history": messages[1:-1] if len(messages) > 2 else [],
-        "model": model,
-    }
-    headers = {"Content-Type": "application/json"}
-    if secret:
-        headers["X-OpenClaw-Secret"] = secret
+        prompt_parts = []
+        if messages:
+            system_prompt = (messages[0].get("content", "") or "").strip()
+            if system_prompt:
+                prompt_parts.append("CONTEXTO DEL SISTEMA:\n" + system_prompt)
 
-    candidates = [
-        f"{base_url}/chatbot/openclaw-bridge/",
-        f"{base_url}/api/chatbot/openclaw-bridge/",
-    ]
+        history = messages[1:-1] if len(messages) > 2 else []
+        if history:
+            rendered_history = []
+            for item in history[-8:]:
+                role = (item.get("role") or "user").upper()
+                content = (item.get("content") or "").strip()
+                if content:
+                    rendered_history.append(f"{role}: {content}")
+            if rendered_history:
+                prompt_parts.append("HISTORIAL RECIENTE:\n" + "\n\n".join(rendered_history))
 
-    last_error = None
-    for url in candidates:
-        try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=120)
-            if resp.ok:
-                data = resp.json()
-                reply = (data.get("reply") or "").strip()
-                if reply:
-                    return reply
-                raise RuntimeError("OpenClaw no devolvió texto")
-            last_error = f"{resp.status_code}: {resp.text[:300]}"
-        except Exception as e:
-            last_error = str(e)
+        user_message = (messages[-1].get("content", "") if messages else "").strip()
+        prompt_parts.append("MENSAJE DEL USUARIO:\n" + user_message)
+        prompt = "\n\n".join([p for p in prompt_parts if p]).strip()
 
-    raise RuntimeError(f"No pude conectar Datium con OpenClaw. {last_error or 'Sin detalles.'}")
+        result = subprocess.run(
+            ["openclaw", "run", prompt],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        stdout = (result.stdout or "").strip()
+        stderr = (result.stderr or "").strip()
+
+        if result.returncode == 0 and stdout:
+            return stdout
+        if stdout:
+            return stdout
+        raise RuntimeError(stderr or "OpenClaw no devolvió salida")
+    except Exception as e:
+        raise RuntimeError(f"No pude conectar Datium con OpenClaw. {str(e)}")
 
 
 def _normalize_actions(parsed: Dict[str, Any]) -> List[Dict[str, Any]]:
