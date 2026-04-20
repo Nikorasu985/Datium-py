@@ -7,7 +7,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Datium - Asistente IA</title>
     <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -46,6 +46,9 @@
         .dark .chat-bubble-ai { background: #1a2634; color: #e5e7eb; border: 1px solid rgba(255,255,255,0.05); }
         .typing-dot { width: 6px; height: 6px; background: #137fec; border-radius: 50%; animation: dotPulse 1.5s infinite; }
         @keyframes dotPulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
+        .chat-personalized-bg{background:radial-gradient(circle at top left,rgba(19,127,236,.18),transparent 28%),radial-gradient(circle at 85% 20%,rgba(16,185,129,.14),transparent 22%),linear-gradient(180deg,rgba(255,255,255,.96),rgba(246,247,248,.98));}
+        .dark .chat-personalized-bg{background:radial-gradient(circle at top left,rgba(19,127,236,.18),transparent 28%),radial-gradient(circle at 85% 20%,rgba(16,185,129,.10),transparent 22%),linear-gradient(180deg,#0e1722,#101922);}
+        .welcome-glow{box-shadow:0 0 0 1px rgba(19,127,236,.08),0 20px 60px rgba(19,127,236,.12);}
     </style>
 </head>
 
@@ -66,7 +69,7 @@
                 </div>
                 <nav class="px-4 flex flex-col gap-2">
                     <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
-                        <span class="material-symbols-outlined">dns</span>
+                        <span class="material-symbols-outlined">dashboard</span>
                         Dashboard
                     </a>
                     <a href="connections.html" class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
@@ -81,9 +84,12 @@
                         <span class="material-symbols-outlined">history</span>
                         Auditoría
                     </a>
-                    <a href="chat.html" class="flex items-center gap-3 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm font-bold shadow-sm shadow-emerald-500/10 border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
-                        <span class="material-symbols-outlined">forum</span>
-                        Asistente IA
+                    <a href="chat.html" class="flex items-center gap-3 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm font-bold shadow-sm shadow-emerald-500/10 border-t border-gray-100 dark:border-gray-800 mt-2 pt-4 group">
+                        <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">smart_toy</span>
+                        <div class="flex items-center justify-between w-full">
+                            <span>Datium IA</span>
+                            <span class="bg-emerald-500/20 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">IA</span>
+                        </div>
                     </a>
                 </nav>
             </div>
@@ -106,9 +112,8 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 h-full overflow-hidden flex flex-col bg-background-light dark:bg-background-dark relative">
+        <main class="flex-1 h-full overflow-hidden flex flex-col bg-background-light dark:bg-background-dark relative chat-personalized-bg">
 
-            <!-- Top status bar removed -->
 
             <!-- Chat Container -->
             <div id="chatMessages" class="flex-1 overflow-y-auto p-4 lg:p-12 space-y-6 custom-scrollbar bg-transparent dark:bg-transparent relative h-full">
@@ -158,6 +163,9 @@
                             </select>
                             <span class="material-symbols-outlined absolute right-2 pointer-events-none text-gray-400 text-[14px]">expand_more</span>
                         </div>
+                        <button id="btnShareWhatsApp" class="w-10 h-10 rounded-xl text-gray-400 hover:text-primary transition-colors flex items-center justify-center flex-shrink-0" title="Compartir por WhatsApp" onclick="openWhatsAppShareModal()">
+                            <span class="material-symbols-outlined text-xl">share</span>
+                        </button>
                         <button id="btnAttach" class="w-10 h-10 rounded-xl text-gray-400 hover:text-primary transition-colors flex items-center justify-center flex-shrink-0" title="Adjuntar archivo" onclick="document.getElementById('fileInput').click()">
                             <span class="material-symbols-outlined text-xl">attach_file</span>
                         </button>
@@ -224,6 +232,26 @@
         </div>
     </div>
 
+    <div id="whatsAppShareModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[115] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#151f2b] rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-800">
+            <div class="flex items-start justify-between gap-4 mb-6">
+                <div><h3 class="text-2xl font-black text-[#111418] dark:text-white">Compartir por WhatsApp</h3><p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">Escribe el mensaje y elige a quién enviarlo.</p></div>
+                <button onclick="closeWhatsAppShareModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Destinatario</label>
+                    <select id="whatsAppTargetSelect" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-medium dark:text-white focus:ring-2 focus:ring-primary/20 outline-none"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Mensaje</label>
+                    <textarea id="whatsAppMessageInput" rows="5" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm dark:text-white focus:ring-2 focus:ring-primary/20 outline-none" placeholder="Escribe el mensaje o pídeselo al asistente y luego compártelo..."></textarea>
+                </div>
+                <button onclick="shareViaWhatsApp()" class="w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">Abrir WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
     <!-- AI Settings Modal -->
     <div id="aiSettingsModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
         <div class="bg-white dark:bg-[#151f2b] rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-800">
@@ -246,9 +274,15 @@
                 </div>
 
                 <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700">
-                    <div class="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Motor fijo</div>
-                    <input id="aiModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="datium-openclaw">
-                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Recomendado: dejar este motor fijo para evitar cambios accidentales.</p>
+                    <div class="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Motor principal</div>
+                    <input id="aiModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="openrouter:openai/gpt-4o-mini">
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Motor cloud recomendado para respuestas formales y precisas.</p>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700">
+                    <div class="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Respaldo local</div>
+                    <input id="aiFallbackModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="local:llama3.2">
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Se usa automáticamente si el motor cloud no responde.</p>
                     <button onclick="saveAiSettings()" class="mt-3 w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">Guardar ajustes</button>
                 </div>
             </div>

@@ -10,8 +10,8 @@ from .ai_engine import AiConfig
 from .permissions import ensure_authenticated
 
 
-# Config simple en memoria (para este proyecto). Si se requiere persistencia, se modela.
-_CONFIG = AiConfig(model="datium-openclaw", enabled=True)
+# Config simple en memoria.
+_CONFIG = AiConfig(model="openrouter:openai/gpt-4o-mini", fallback_model="local:llama3.2", enabled=True)
 
 
 @api_view(["GET", "PUT"])
@@ -32,7 +32,8 @@ def ai_settings_view(request):
 
     enabled = data.get("enabled", _CONFIG.enabled)
     model = data.get("model", _CONFIG.model)
-    _CONFIG = AiConfig(model=str(model), enabled=bool(enabled))
+    fallback_model = data.get("fallback_model", _CONFIG.fallback_model)
+    _CONFIG = AiConfig(model=str(model), fallback_model=str(fallback_model), enabled=bool(enabled))
     return JsonResponse({"ok": True, "config": asdict(_CONFIG)})
 
 

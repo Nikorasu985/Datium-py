@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -11,7 +12,8 @@ from api.models import System, SystemField, SystemRecord, SystemRecordValue, Sys
 
 @dataclass(frozen=True)
 class AiConfig:
-    model: str = "datium-openclaw"
+    model: str = "openrouter:openai/gpt-4o-mini"
+    fallback_model: str = "local:llama3.2"
     enabled: bool = True
 
 
@@ -97,43 +99,31 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
 
     return (
         "Eres la IA administrativa integrada de Datium.\n"
-        "Hablas natural, clara y útil; no suenas robótica ni repites plantillas viejas.\n"
+        "Hablas natural, ejecutiva, formal, clara y precisa. Jamás suenas robótica ni repites plantillas.\n"
+        "REGLA CRÍTICA DE FORMATO: ESTÁ ESTRICTAMENTE PROHIBIDO USAR MARKDOWN. NO uses asteriscos (**), ni numerales (##), ni signos de más (++). Tu respuesta debe ser texto plano y formal.\n"
         "Tienes el mismo contexto operativo del usuario logueado dentro del sistema.\n"
         "\n"
         "REGLAS:\n"
-        "- Responde como una persona normal, pero cuando toque operar el sistema sé precisa y ejecutiva.\n"
+        "- Responde como una persona formal, y cuando toque operar el sistema sé altamente precisa y ejecutiva.\n"
         "- No inventes datos. Si no hay filas, responde literalmente: \"La tabla está vacía.\".\n"
-        "- Siempre respeta el FOCO (sistema activo). Si existe un sistema enfocado, toda consulta o acción debe resolverse ahí, salvo que el usuario pida explícitamente trabajar en otro o en modo global.\n"
-        "- Nunca reutilices plantillas fijas antiguas como asistencia escolar, CRM, inventario u otras, a menos que el usuario lo pida explícitamente.\n"
+        "- Siempre respeta el FOCO (sistema activo). Si existe un sistema enfocado, toda consulta o acción debe resolverse ahí.\n"
+        "- Nunca reutilices plantillas fijas antiguas como asistencia escolar, CRM u otras, a menos que se pida explícitamente.\n"
         "- Si el usuario quiere crear una estructura, diseña exactamente lo que pidió con los campos mínimos necesarios.\n"
-        "- Si faltan datos importantes para crear algo bien, pide solo el mínimo faltante.\n"
         "- Si propones crear, editar, mover o eliminar elementos, incluye además un bloque ```json al final para confirmación.\n"
         "- Si la acción elimina algo, advierte de forma breve que pedirá contraseña antes de ejecutar.\n"
         "- Si la acción es sensible, menciona que quedará registrada en auditoría.\n"
-        "- El texto visible para el usuario debe poder leerse por sí solo, sin mencionar reglas internas ni JSON.\n"
-        "- Nunca mezcles caracteres raros, chino, japonés, símbolos corruptos o texto con encoding roto en una respuesta en español.\n"
-        f"- Puedes tratar al usuario por su nombre si fluye natural: {user_name}.\n"
-        "- Puedes usar emojis con moderación, solo si encajan.\n"
-        "- No uses encabezados Markdown con '#'.\n"
+        "- El texto visible para el usuario debe poder leerse por sí solo, sin mencionar reglas internas.\n"
+        "- Nunca mezcles caracteres raros, símbolos corruptos o texto con encoding roto. Solo español formal.\n"
+        f"- Tratarás al usuario cordialmente como: {user_name}.\n"
         "\n"
         "CUANDO PROPONGAS CAMBIOS:\n"
-        "- Explica breve qué vas a crear o modificar.\n"
+        "- Explica breve qué vas a crear o modificar devolviendo siempre el contexto JSON.\n"
         "- Muestra la estructura propuesta en lenguaje humano.\n"
-        "- No des una vista previa genérica; debe coincidir exactamente con la petición actual.\n"
-        "- Luego incluye un bloque ```json con este formato:\n"
+        "- Luego incluye un bloque ```json con este formato EXACTO:\n"
         "{\"confirmation_required\": true, \"summary\": \"...\", \"actions\": [{\"action\":\"...\",\"payload\":{...}}]}\n"
-        "- Acciones válidas: create_system, update_system, delete_system, list_tables, create_table, update_table, delete_table, list_records, create_record, update_record, delete_record, export_table, move_table.\n"
-        "- Si usas create_system y también vas a crear tablas, DEBES enviarlas dentro de payload.tables, no fuera.\n"
-        "- Estructura correcta para create_system: {action:'create_system', payload:{name, description, imageUrl?, securityMode?, tables:[{name, description?, fields:[...]}]}}.\n"
-        "- Para create_table / update_table usa payload.fields con objetos como: {name, type, required, options?, relatedTableId?, relatedDisplayFieldId?}.\n"
-        "- Tipos válidos de campo: text, number, date, boolean, select, relation. Si el usuario pide hora, usa text salvo que exista otro tipo soportado.\n"
-        "- Para create_record / update_record usa values por ID de campo cuando esos IDs existan en el contexto.\n"
-        "\n"
-        "EJEMPLO DE AJUSTE CORRECTO:\n"
-        "Si el usuario pide una asistencia para un evento y dice que solo necesita nombres, apellidos y si fue o no, entonces la propuesta debe parecerse a:\n"
-        "- Tabla: Asistencias evento\n"
-        "- Campos: Nombre, Apellido, Asistió\n"
-        "y no debes proponer campos como Documento, Grado, Correo, Fecha u Observación salvo que el usuario los pida.\n"
+        "- Acciones válidas: create_system, update_system, delete_system, list_tables, create_table, update_table, delete_table, list_records, create_record, update_record, delete_record.\n"
+        "- Estructura correcta create_system: {action:'create_system', payload:{name, description, imageUrl?, securityMode?, tables:[{name, description?, fields:[...]}]}}.\n"
+        "- Tipos válidos campo: text, number, date, boolean, select, relation.\n"
         "\n"
         f"FOCO_SISTEMA_ID: {system_id if system_id else 'GLOBAL'}\n"
         f"\n{schema}\n"
@@ -143,50 +133,102 @@ def build_system_prompt(*, user: User, system_id: Optional[int], user_message: s
     ).strip()
 
 
-def ollama_chat(model: str, messages: List[Dict[str, str]]) -> str:
+def _clean_ai_text(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = text.replace("**", "").replace("##", "").replace("++", "")
+    cleaned = re.sub(r"^[#*+\-\s]+", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _get_env_value(key: str, default: str = "") -> str:
+    value = os.getenv(key, "").strip()
+    if value:
+        return value
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as fh:
+                for raw_line in fh:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    name, raw_value = line.split("=", 1)
+                    if name.strip() == key:
+                        return raw_value.strip().strip('"').strip("'")
+        except Exception:
+            pass
+    return default
+
+
+def _chat_openrouter(model: str, messages: List[Dict[str, str]]) -> str:
+    api_key = _get_env_value("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("Falta OPENROUTER_API_KEY en el entorno.")
+
+    target_model = model.split(":", 1)[1] if ":" in model else model
+    headers = {
+        "Content-Type": "application/json",
+        "HTTP-Referer": _get_env_value("DATIUM_SITE_URL", "https://datium.local"),
+        "X-Title": "Datium IA",
+    }
+    data = {
+        "model": target_model,
+        "messages": messages,
+        "temperature": 0.2,
+    }
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        json=data,
+        timeout=60,
+        auth=(api_key, ""),
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f"Error de OpenRouter {response.status_code}: {response.text}")
+    payload = response.json()
+    choices = payload.get("choices", [])
+    if not choices:
+        raise RuntimeError("La API de OpenRouter devolvió una respuesta vacía.")
+    return _clean_ai_text(choices[0].get("message", {}).get("content", ""))
+
+
+def _chat_ollama(model: str, messages: List[Dict[str, str]]) -> str:
+    target_model = model.split(":", 1)[1] if ":" in model else model
+    base_url = _get_env_value("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    payload = {
+        "model": target_model,
+        "messages": messages,
+        "stream": False,
+        "options": {"temperature": 0.2},
+    }
+    response = requests.post(f"{base_url}/api/chat", json=payload, timeout=90)
+    if response.status_code != 200:
+        raise RuntimeError(f"Error de Ollama {response.status_code}: {response.text}")
+    data = response.json()
+    content = (data.get("message") or {}).get("content", "")
+    return _clean_ai_text(content)
+
+
+def ollama_chat(model: str, messages: List[Dict[str, str]], fallback_model: Optional[str] = None) -> str:
+    errors = []
     try:
-        import subprocess
+        if str(model).startswith("local:"):
+            return _chat_ollama(model, messages)
+        return _chat_openrouter(model, messages)
+    except Exception as exc:
+        errors.append(str(exc))
 
-        prompt_parts = []
-        if messages:
-            system_prompt = (messages[0].get("content", "") or "").strip()
-            if system_prompt:
-                prompt_parts.append("CONTEXTO DEL SISTEMA:\n" + system_prompt)
+    if fallback_model:
+        try:
+            if str(fallback_model).startswith("openrouter:"):
+                return _chat_openrouter(fallback_model, messages)
+            return _chat_ollama(fallback_model, messages)
+        except Exception as exc:
+            errors.append(str(exc))
 
-        history = messages[1:-1] if len(messages) > 2 else []
-        if history:
-            rendered_history = []
-            for item in history[-8:]:
-                role = (item.get("role") or "user").upper()
-                content = (item.get("content") or "").strip()
-                if content:
-                    rendered_history.append(f"{role}: {content}")
-            if rendered_history:
-                prompt_parts.append("HISTORIAL RECIENTE:\n" + "\n\n".join(rendered_history))
-
-        user_message = (messages[-1].get("content", "") if messages else "").strip()
-        prompt_parts.append("MENSAJE DEL USUARIO:\n" + user_message)
-        prompt = "\n\n".join([p for p in prompt_parts if p]).strip()
-
-        result = subprocess.run(
-            ["openclaw", "run", prompt],
-            capture_output=True,
-            text=True,
-            timeout=180,
-            encoding="utf-8",
-            errors="replace",
-        )
-
-        stdout = (result.stdout or "").strip()
-        stderr = (result.stderr or "").strip()
-
-        if result.returncode == 0 and stdout:
-            return stdout
-        if stdout:
-            return stdout
-        raise RuntimeError(stderr or "OpenClaw no devolvió salida")
-    except Exception as e:
-        raise RuntimeError(f"No pude conectar Datium con OpenClaw. {str(e)}")
+    raise RuntimeError("No pude conectar Datium con la IA. " + " | ".join(errors))
 
 
 def _normalize_actions(parsed: Dict[str, Any]) -> List[Dict[str, Any]]:

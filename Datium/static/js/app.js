@@ -29,6 +29,7 @@ async function apiFetch(endpoint, options = {}) {
     }
 
     const response = await fetch(API_URL + endpoint, {
+        cache: 'no-store',
         ...options,
         headers,
         credentials: 'include'
@@ -312,10 +313,9 @@ function toggleSidebar() {
     }
 }
 
+
 document.addEventListener('DOMContentLoaded', () => {
     injectLoadingHTML();
-    // initGlobalAiButton removed per user request
-
     // Add overlay if not exists
     if (!document.getElementById('sidebarOverlay')) {
         const overlay = document.createElement('div');
@@ -324,15 +324,15 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.onclick = toggleSidebar;
         document.body.appendChild(overlay);
     }
-    
+
     // Check if user is admin to inject Panel Admin button
-    if(getToken() && !window.location.pathname.includes('login.html') && !window.location.pathname.includes('register.html')) {
+    if (getToken() && !window.location.pathname.includes('login.html') && !window.location.pathname.includes('register.html')) {
         apiFetch('/user/profile').then(async res => {
-            if(res && res.ok){
+            if (res && res.ok) {
                 const user = await res.json();
-                if(user.role === 'admin') {
+                if (user.role === 'admin') {
                     const nav = document.querySelector('aside nav');
-                    if(nav && !document.querySelector('a[href="admin.html"]')) {
+                    if (nav && !document.querySelector('a[href="admin.html"]')) {
                         const adminLink = `
                         <a href="admin.html" class="flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl text-sm font-bold transition-colors mt-2 border-t border-gray-100 dark:border-gray-800 pt-4">
                             <span class="material-symbols-outlined">shield_person</span>
@@ -350,16 +350,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // UNIVERSAL REPORT SYSTEM
 // =========================================
 function injectReportSystem() {
-    if(!getToken()) return; // Solo usuarios logueados
-    
-    // 1. Cargar html2canvas
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    document.head.appendChild(script);
+    if (!getToken()) return;
+    if (document.getElementById('reportFab')) return;
 
-    // 2. Botón Flotante
+    if (!window.html2canvas && !document.querySelector('script[data-report-capture="1"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        script.dataset.reportCapture = '1';
+        script.defer = true;
+        document.head.appendChild(script);
+    }
+
     const fabHtml = `
-        <button onclick="openReportModal()" class="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white p-4 rounded-full shadow-2xl flex items-center justify-center z-50 group transition-all hover:scale-110">
+        <button id="reportFab" onclick="openReportModal()" class="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white px-4 py-4 rounded-full shadow-2xl flex items-center justify-center z-50 group transition-all hover:scale-110" aria-label="Reportar problema">
             <span class="material-symbols-outlined">bug_report</span>
             <span class="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold group-hover:ml-2">Reportar Problema</span>
         </button>
@@ -405,7 +408,7 @@ function injectReportSystem() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-window.openReportModal = function() {
+window.openReportModal = function () {
     const modal = document.getElementById('reportModal');
     const content = document.getElementById('reportModalContent');
     modal.classList.remove('hidden');
@@ -415,7 +418,7 @@ window.openReportModal = function() {
     }, 10);
 };
 
-window.closeReportModal = function() {
+window.closeReportModal = function () {
     const modal = document.getElementById('reportModal');
     const content = document.getElementById('reportModalContent');
     content.classList.add('scale-95', 'opacity-0');
@@ -427,10 +430,10 @@ window.closeReportModal = function() {
     }, 200);
 };
 
-window.submitReport = async function() {
+window.submitReport = async function () {
     const title = document.getElementById('reportTitle').value.trim();
     const summary = document.getElementById('reportSummary').value.trim();
-    
+
     if (!title || !summary) return showError('Por favor completa todos los campos');
 
     closeReportModal();
@@ -441,7 +444,7 @@ window.submitReport = async function() {
             throw new Error('La librería de capturas aún no carga.');
         }
 
-        const fab = document.querySelector('button[onclick="openReportModal()"]');
+        const fab = document.getElementById('reportFab');
         if (fab) fab.style.display = 'none';
 
         const canvas = await html2canvas(document.body, {
@@ -459,12 +462,12 @@ window.submitReport = async function() {
 
         const token = getToken();
         let screenshotUrl = '';
-        
+
         // This fails softly if the image is too big for the plan, but we'll try anyway
         try {
             const uploadRes = await fetch(API_URL + '/upload/image', {
                 method: 'POST',
-                headers: {'Authorization': 'Bearer ' + token},
+                headers: { 'Authorization': 'Bearer ' + token },
                 body: formData
             });
 
@@ -472,7 +475,7 @@ window.submitReport = async function() {
                 const data = await uploadRes.json();
                 screenshotUrl = data.url;
             }
-        } catch(e) {
+        } catch (e) {
             console.warn('Screenshot upload issue', e);
         }
 
@@ -490,7 +493,7 @@ window.submitReport = async function() {
             showError('Hubo un error al enviar el reporte');
         }
 
-    } catch(e) {
+    } catch (e) {
         console.error(e);
         hideLoading();
         showError('No se pudo procesar tu reporte. ' + e.message);

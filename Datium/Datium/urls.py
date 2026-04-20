@@ -1,19 +1,4 @@
-"""
-URL configuration for Datium project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView
@@ -36,12 +21,11 @@ urlpatterns = [
     path('system_form.html', TemplateView.as_view(template_name='system_form.html')),
     path('table.html', TemplateView.as_view(template_name='table.html')),
     path('table_form.html', TemplateView.as_view(template_name='table_form.html'), name='table_form'),
-    path('chat.html', TemplateView.as_view(template_name='chat.html'), name='chat'), # Added chat.html route
+    path('chat.html', TemplateView.as_view(template_name='chat.html'), name='chat'),
     path('connections.html', TemplateView.as_view(template_name='connections.html')),
     path('audit.html', TemplateView.as_view(template_name='audit.html')),
     path('stats.html', TemplateView.as_view(template_name='stats.html')),
     path('admin.html', TemplateView.as_view(template_name='admin.html')),
-    path('admin_users.html', TemplateView.as_view(template_name='admin_users.html')),
 ]
 
 if settings.DEBUG:

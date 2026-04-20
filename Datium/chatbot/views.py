@@ -164,23 +164,21 @@ def _get_conversation_id_from_request(request):
 
 def _get_or_create_conversation(user, system_id, conversation_id=None):
     try:
-        if conversation_id:
-            conv = ChatConversation.objects.filter(id=conversation_id, user=user).first()
-            if conv:
-                return conv
-
-        conv = ChatConversation.objects.filter(user=user, system_id=system_id).order_by("-updated_at").first()
-        if conv:
-            return conv
-
-        title = "Conversación"
-        if system_id:
-            sys = System.objects.filter(id=system_id).first()
-            if sys and sys.name:
-                title = f"{sys.name} - Conversación"
-        return ChatConversation.objects.create(user=user, system_id=system_id, title=title)
+        # Mantener solo 1 historial único (eliminar duplicados)
+        conv = ChatConversation.objects.filter(user=user, system_id=system_id).order_by("id").first()
+        if not conv:
+            title = "Chat AI"
+            if system_id:
+                sys = System.objects.filter(id=system_id).first()
+                if sys and sys.name:
+                    title = f"Chat: {sys.name}"
+            conv = ChatConversation.objects.create(user=user, system_id=system_id, title=title)
+        
+        # Eliminar las demás para garantizar 1 solo historial
+        ChatConversation.objects.filter(user=user, system_id=system_id).exclude(id=conv.id).delete()
+        return conv
     except Exception:
-        title = "Conversación"
+        title = "Chat AI"
         return ChatConversation.objects.create(user=user, system_id=system_id, title=title)
 
 
@@ -188,33 +186,27 @@ def _get_or_create_conversation(user, system_id, conversation_id=None):
 def conversations_view(request):
     try:
         ensure_chatbot_tables_ready()
-        ensure_chatbot_tables_ready()
-        ensure_chatbot_tables_ready()
         user, perm = ensure_authenticated(request)
         if not perm.allowed:
             return JsonResponse({"error": perm.reason}, status=401)
 
         system_id = get_active_system_id_from_request(request)
+        
+        # Forzar obtener/crear el único chat
+        conv = _get_or_create_conversation(user, system_id)
+        
         if request.method == "GET":
-            qs = ChatConversation.objects.filter(user=user, system_id=system_id).order_by("-updated_at")
             return JsonResponse(
                 {
                     "status": "success",
                     "conversations": [
-                        {"id": c.id, "title": c.title, "system_id": c.system_id, "updated_at": c.updated_at.isoformat()}
-                        for c in qs[:50]
+                        {"id": conv.id, "title": conv.title, "system_id": conv.system_id, "updated_at": conv.updated_at.isoformat()}
                     ],
                 }
             )
 
-        title = ""
-        try:
-            title = (request.data.get("title") or "").strip()
-        except Exception:
-            title = (request.POST.get("title") or "").strip()
-        if not title:
-            title = "Nueva conversación"
-        conv = ChatConversation.objects.create(user=user, system_id=system_id, title=title)
+        # Si es POST (crear nueva), solo devolvemos la existente, pero podríamos vaciarla si es necesario
+        ChatMessage.objects.filter(user=user, conversation=conv).delete() # vacía el chat
         return JsonResponse({"status": "success", "conversation": {"id": conv.id, "title": conv.title}}, status=201)
     except Exception as e:
         return JsonResponse({"error": f"Error en conversaciones: {str(e)}", "conversations": []}, status=500)
@@ -340,7 +332,7 @@ def chat_view(request, system_id=None):
                 messages_llm.append({'role': role, 'content': msg.content})
 
             try:
-                ai_text = ollama_chat(cfg.model, messages_llm)
+                ai_text = ollama_chat(cfg.model, messages_llm, cfg.fallback_model)
                 parsed = parse_actions_from_ai_text(ai_text)
                 content = strip_json_block(ai_text) or "No se obtuvo una respuesta válida del modelo."
 
@@ -491,8 +483,8 @@ def execute_action_view(request):
 def model_status(request):
     cfg = get_ai_config()
     if not cfg.enabled:
-        return JsonResponse({'status': 'OFFLINE', 'model': cfg.model, 'enabled': False})
-    return JsonResponse({'status': 'ONLINE', 'model': cfg.model, 'enabled': True})
+        return JsonResponse({'status': 'OFFLINE', 'model': cfg.model, 'fallback_model': cfg.fallback_model, 'enabled': False})
+    return JsonResponse({'status': 'ONLINE', 'model': cfg.model, 'fallback_model': cfg.fallback_model, 'enabled': True})
 
 
 @api_view(['GET'])

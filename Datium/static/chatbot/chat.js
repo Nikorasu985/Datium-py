@@ -1,5 +1,6 @@
 let currentSystemId = null;
 let isWaitingResponse = false;
+let shareTargetsCache = [];
 let selectedFiles = [];
 let currentXhr = null;
 let currentConversationId = null;
@@ -150,26 +151,46 @@ async function createNewConversation(silent = false) {
     }
 }
 
-async function loadSystems() {
+let systemsCache = null;
+let systemsCachePromise = null;
+
+async function loadSystems(force = false) {
+    const selector = document.getElementById('systemSelector');
     try {
-        const res = await apiFetch('/systems');
-        if (res && res.ok) {
-            const systems = await res.json();
-            const selector = document.getElementById('systemSelector');
-            if (selector) {
-                selector.innerHTML = '<option value="">Global</option>';
-                systems.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.innerText = s.name;
-                    selector.appendChild(opt);
-                });
-                if (currentSystemId) selector.value = String(currentSystemId);
-            }
+        if (!force && systemsCache && selector) {
+            renderSystemsSelector(selector, systemsCache);
+            return;
         }
+        if (!force && systemsCachePromise) {
+            const systems = await systemsCachePromise;
+            if (selector) renderSystemsSelector(selector, systems);
+            return;
+        }
+        systemsCachePromise = (async () => {
+            const res = await apiFetch('/systems');
+            if (!(res && res.ok)) return [];
+            const systems = await res.json();
+            systemsCache = Array.isArray(systems) ? systems : [];
+            return systemsCache;
+        })();
+        const systems = await systemsCachePromise;
+        if (selector) renderSystemsSelector(selector, systems);
     } catch (e) {
         console.error("Error loading systems", e);
+    } finally {
+        systemsCachePromise = null;
     }
+}
+
+function renderSystemsSelector(selector, systems) {
+    selector.innerHTML = '<option value="">Global</option>';
+    systems.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.innerText = s.name;
+        selector.appendChild(opt);
+    });
+    if (currentSystemId) selector.value = String(currentSystemId);
 }
 
 async function checkAiStatus() {
@@ -187,9 +208,15 @@ function renderWelcomeState() {
     if (!container) return;
     container.innerHTML = `
         <div class="max-w-5xl mx-auto w-full py-10 md:py-14">
-            <div class="flex flex-col items-center justify-center gap-8 text-center">
-                <img src="/static/img/Isotipo modo oscuro.jpeg" alt="Datium" class="w-24 h-24 md:w-28 md:h-28 object-contain opacity-95">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
+            <div class="welcome-glow bg-white/80 dark:bg-[#151f2b]/80 backdrop-blur-xl rounded-[2.5rem] border border-white/60 dark:border-gray-800 animate-float p-6 md:p-8 shadow-2xl">
+                <div class="flex flex-col items-center justify-center gap-8 text-center">
+                    <div class="max-w-3xl mx-auto">
+                        <img src="/static/img/Isotipo modo oscuro.jpeg" alt="Datium" class="w-24 h-24 md:w-28 md:h-28 object-contain opacity-95 mx-auto mb-4">
+                        <div class="text-[11px] uppercase tracking-[0.25em] text-primary font-black mb-2">Asistente Datium</div>
+                        <h2 class="text-2xl md:text-4xl font-black text-[#111418] dark:text-white">Hola. Estoy listo para ayudarte con tu sistema.</h2>
+                        <p class="mt-3 text-sm md:text-base text-gray-500 dark:text-gray-300 max-w-2xl mx-auto">Puedo actuar como cerebro operativo: analizar estructuras, crear tablas y registros, revisar auditoría, sugerir mejoras y compartir mensajes por WhatsApp.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
                     <button onclick="setSuggestion('Crea una tabla de asistentes para un evento con nombre, apellido y asistió')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-blue-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
                         <div class="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">table_chart</span></div>
                         <div><div class="text-blue-400 font-bold text-sm">Crear tabla</div><div class="text-gray-500 text-xs">Diseño exacto según lo que pidas</div></div>
@@ -206,6 +233,15 @@ function renderWelcomeState() {
                         <div class="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">history</span></div>
                         <div><div class="text-orange-400 font-bold text-sm">Revisar auditoría</div><div class="text-gray-500 text-xs">Cambios sensibles, trazabilidad y riesgos</div></div>
                     </button>
+                    <button onclick="setSuggestion('Redáctame un mensaje breve y profesional para WhatsApp sobre este sistema')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-emerald-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
+                        <div class="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">share</span></div>
+                        <div><div class="text-emerald-400 font-bold text-sm">Compartir por WhatsApp</div><div class="text-gray-500 text-xs">Redacta y luego envía a un miembro o a ti</div></div>
+                    </button>
+                    <button onclick="setSuggestion('Revísame este sistema como si fueras mi cerebro operativo y dime prioridades, riesgos y siguientes pasos')" class="bg-white dark:bg-[#151f2b] hover:bg-gray-50 dark:hover:bg-[#1e2c3d] rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-cyan-500/50 transition-all text-left flex items-center gap-4 group shadow-sm">
+                        <div class="h-10 w-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-500 group-hover:scale-110 transition-transform"><span class="material-symbols-outlined">psychology</span></div>
+                        <div><div class="text-cyan-400 font-bold text-sm">Modo cerebro</div><div class="text-gray-500 text-xs">Prioridades, riesgos, enfoque y siguientes pasos</div></div>
+                    </button>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -233,6 +269,16 @@ async function loadChatHistory() {
             const selector = document.getElementById('systemSelector');
             if (selector && currentSystemId) selector.value = String(currentSystemId);
             restoreUndoActions();
+        } else if (res.status === 404) {
+            currentConversationId = null;
+            localStorage.removeItem(conversationStorageKey());
+            clearUndoActions();
+            await createNewConversation(true);
+            return;
+        } else {
+            const errText = await res.text();
+            console.error('Chat history error', errText);
+            renderWelcomeState();
         }
     } catch (e) {
         console.error("Error loading history", e);
@@ -413,15 +459,22 @@ async function sendMessage() {
                 try {
                     const data = JSON.parse(currentXhr.responseText);
                     const plans = data.plans || [];
-                    let msg = `### Datium AI no disponible en tu plan\n${data.error || ''}\n\n### Planes\n`;
-                    msg += plans.map(p => `- **${p.name}**: ${p.ai ? 'Incluye IA' : 'Sin IA'}`).join('\n');
-                    msg += `\n\n### Subir de plan\n- Abrir planes: ${data.upgradeUrl || '/profile.html'}`;
+                    let msg = `Datium IA no está disponible en tu plan.\n${data.error || ''}\n\nPlanes disponibles\n`;
+                    msg += plans.map(p => `• ${p.name}: ${p.ai ? 'Incluye IA' : 'Sin IA'}`).join('\n');
+                    msg += `\n\nPuedes revisar los planes aquí: ${data.upgradeUrl || '/profile.html'}`;
                     addMessageToUI('ai', msg, true);
                 } catch (e) {
                     addMessageToUI('ai', 'Datium AI no está disponible en tu plan. Abre /profile.html para subir a Pro.', true);
                 }
             } else {
-                addMessageToUI('ai', 'Error del servidor: ' + currentXhr.status, true);
+                let serverError = 'Error del servidor: ' + currentXhr.status;
+                try {
+                    const err = JSON.parse(currentXhr.responseText || '{}');
+                    if (err.error) serverError = err.error;
+                } catch (e) {}
+                if (serverError.includes('conversation_id')) serverError = 'Ya reconect? la memoria del chat. Intenta enviar tu mensaje otra vez.';
+                else if (serverError.toLowerCase().includes('error general del chat')) serverError = 'Tu asistente tuvo un tropiezo interno. Ya lo estoy reacomodando; vuelve a intentar en un momento.';
+                addMessageToUI('ai', serverError, true);
             }
             isWaitingResponse = false;
             currentXhr = null;
@@ -482,11 +535,6 @@ function formatAiMessage(content) {
         .replace(/Tabla: (.*)/g, '<div class="text-xs font-bold dark:text-white mb-0.5">Tabla: $1</div>')
         .replace(/Filtro: (.*)/g, '<div class="text-xs text-gray-500 mb-0.5 italic">Filtro: $1</div>')
         .replace(/Estado: (.*)/g, '<div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold mt-2">● $1</div>')
-        .replace(/\*\*(.*?)\*\*/g, '<span class="font-black text-primary">$1</span>')
-        .replace(/^####\s+(.*)/gm, '<span class="text-xs font-black text-primary/90 block mt-3 mb-1">$1</span>')
-        .replace(/^###\s+(.*)/gm, '<span class="text-sm font-black text-primary block mt-3 mb-1">$1</span>')
-        .replace(/^##\s+(.*)/gm, '<span class="text-base font-black text-primary block mt-3 mb-1">$1</span>')
-        .replace(/^#\s+(.*)/gm, '<span class="text-lg font-black text-primary block mt-3 mb-1">$1</span>')
         .replace(/^\- (.*)/gm, '• $1')
         .replace(/^\* (.*)/gm, '• $1')
         .replace(/\n/g, '<br>');
@@ -874,6 +922,42 @@ async function executeUndoActions() {
     await executeAiActions(actions);
 }
 
+async function openWhatsAppShareModal() {
+    const modal = document.getElementById('whatsAppShareModal');
+    const select = document.getElementById('whatsAppTargetSelect');
+    const input = document.getElementById('whatsAppMessageInput');
+    if (!modal || !select || !input) return;
+    try {
+        const q = currentSystemId ? `?system_id=${encodeURIComponent(currentSystemId)}` : '';
+        const res = await fetch(`/chatbot/share-targets/${q}`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } });
+        const data = await res.json();
+        shareTargetsCache = Array.isArray(data.targets) ? data.targets : [];
+        select.innerHTML = shareTargetsCache.length
+            ? shareTargetsCache.map(t => `<option value="${t.phone}">${t.name} · ${t.phone}</option>`).join('')
+            : '<option value="">Sin números disponibles</option>';
+        const lastAi = Array.from(document.querySelectorAll('.chat-bubble-ai')).pop();
+        if (!input.value.trim() && lastAi) input.value = lastAi.innerText.trim();
+    } catch (e) {
+        select.innerHTML = '<option value="">No disponible</option>';
+    }
+    modal.classList.remove('hidden');
+}
+
+function closeWhatsAppShareModal() {
+    const modal = document.getElementById('whatsAppShareModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function shareViaWhatsApp() {
+    const select = document.getElementById('whatsAppTargetSelect');
+    const input = document.getElementById('whatsAppMessageInput');
+    const phone = (select?.value || '').replace(/[^\d]/g, '');
+    const text = encodeURIComponent((input?.value || '').trim());
+    if (!phone || !text) return;
+    window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+    closeWhatsAppShareModal();
+}
+
 function initVoice() {
     const btnVoice = document.getElementById('btnVoice');
     const input = document.getElementById('chatInput');
@@ -992,7 +1076,9 @@ function renderAiSettings() {
 
     const enabled = !!aiSettingsCache?.enabled;
     enabledLabel.innerText = enabled ? 'Asistente activo con permisos del usuario' : 'Asistente pausado';
-    modelInput.value = aiSettingsCache?.model || 'datium-openclaw';
+    modelInput.value = aiSettingsCache?.model || 'openrouter:openai/gpt-4o-mini';
+    const fallbackInput = document.getElementById('aiFallbackModelInput');
+    if (fallbackInput) fallbackInput.value = aiSettingsCache?.fallback_model || 'local:llama3.2';
 }
 
 async function toggleAiEnabled() {
@@ -1002,8 +1088,10 @@ async function toggleAiEnabled() {
 
 async function saveAiSettings(extra = null) {
     const modelInput = document.getElementById('aiModelInput');
+    const fallbackInput = document.getElementById('aiFallbackModelInput');
     const payload = {
-        model: modelInput ? modelInput.value : (aiSettingsCache?.model || 'qwen3.5:cloud'),
+        model: modelInput ? modelInput.value : (aiSettingsCache?.model || 'openrouter:openai/gpt-4o-mini'),
+        fallback_model: fallbackInput ? fallbackInput.value : (aiSettingsCache?.fallback_model || 'local:llama3.2'),
         enabled: aiSettingsCache?.enabled ?? true,
         ...(extra || {}),
     };

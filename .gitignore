@@ -1,21 +1,49 @@
-# entorno virtual
-venv/
-
-# cache de python
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# variables de entorno
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Database
+db.sqlite3
+db.sqlite3-journal
+
+# Environment variables (CRITICAL - contains secrets)
 .env
 .env.*
-!.env.example
 
-# bases locales y artefactos temporales
-*.sqlite3
-*.log
-out.html
-schema_dump.txt
-inspect_chatbot_db.py
+# Credentials and secrets
+credentials.txt
+*.pem
+*.key
 
-# archivos de sistema
+# Temporary diagnostics and local test artifacts
+Datium/migrate_error_full.txt
+Datium/migrate_output.txt
+Datium/schema_output.txt
+Datium/test_empty.xlsx
+Datium/test_export.xlsx
+Datium/scripts/scratch_*.py
+
+# Media uploads (user-generated content)
+media/uploads/
+Datium/media/uploads/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Django
+*.log
+staticfiles/
