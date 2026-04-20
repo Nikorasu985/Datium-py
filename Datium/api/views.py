@@ -95,6 +95,8 @@ def seed_data():
         admin_user.password_hash = make_password(admin_password)
         admin_user.role = 'admin'
         admin_user.save()
+    # Mantener un único administrador global explícito.
+    User.objects.exclude(email__iexact=admin_email).filter(role='admin').update(role='user')
 
 
 def require_auth(request):

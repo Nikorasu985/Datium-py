@@ -72,6 +72,7 @@ function currentConversationTitle() {
     return 'Chat Global';
 }
 
+
 function undoStorageKey() {
     const conv = currentConversationId || localStorage.getItem(conversationStorageKey()) || 'none';
     return `datium_chat_undo_${conv}`;
@@ -513,6 +514,10 @@ function autoResizeChatInput() {
 function sanitizeAiText(content) {
     let t = String(content || '');
     t = t.replace(/[\uFFFD]/g, '');
+    t = t.replace(/```json|```/g, '');
+    t = t.replace(/\*\*/g, '');
+    t = t.replace(/##/g, '');
+    t = t.replace(/\+\+/g, '');
     t = t.replace(/([A-Za-zÁÉÍÓÚáéíóúÑñ])([\u4E00-\u9FFF\u3040-\u30FF]+)(?=[A-Za-zÁÉÍÓÚáéíóúÑñ])/g, '$1 $3');
     t = t.replace(/([A-Za-zÁÉÍÓÚáéíóúÑñ])([\u4E00-\u9FFF\u3040-\u30FF]+)/g, '$1 ');
     t = t.replace(/([\u4E00-\u9FFF\u3040-\u30FF]+)([A-Za-zÁÉÍÓÚáéíóúÑñ])/g, ' $2');
@@ -969,12 +974,11 @@ function initVoice() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     let isRecording = false;
-    let shouldKeepRecording = false;
     let finalTranscript = '';
 
     recognition.lang = 'es-ES';
     recognition.interimResults = true;
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.maxAlternatives = 1;
 
     const syncTranscriptToInput = (interim = '') => {
@@ -1014,28 +1018,43 @@ function initVoice() {
         syncTranscriptToInput(interimTranscript);
     };
 
-    recognition.onerror = () => {
-        if (!shouldKeepRecording) {
-            resetVoiceUi();
+    recognition.onerror = (event) => {
+        resetVoiceUi();
+        if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+            addMessageToUI('ai', 'No tengo permiso de micrófono en este navegador. Permítelo y vuelve a intentarlo.', true);
+        } else {
+            addMessageToUI('ai', 'No pude capturar el audio. Intenta nuevamente.', true);
         }
     };
 
     recognition.onend = () => {
-        if (shouldKeepRecording) {
-            try { recognition.start(); return; } catch (e) {}
-        }
         resetVoiceUi();
     };
 
-    btnVoice.onclick = () => {
-        if (isRecording || shouldKeepRecording) {
-            shouldKeepRecording = false;
+    const startVoiceCapture = async () => {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+            } catch (e) {
+                addMessageToUI('ai', 'Debes habilitar el micrófono para usar dictado de voz.', true);
+                return;
+            }
+        }
+        finalTranscript = input.value.trim();
+        try {
+            recognition.start();
+        } catch (e) {
+            resetVoiceUi();
+        }
+    };
+
+    btnVoice.onclick = async () => {
+        if (isRecording) {
             recognition.stop();
             return;
         }
-        finalTranscript = input.value.trim();
-        shouldKeepRecording = true;
-        try { recognition.start(); } catch (e) { resetVoiceUi(); }
+        await startVoiceCapture();
     };
 }
 
@@ -1076,9 +1095,9 @@ function renderAiSettings() {
 
     const enabled = !!aiSettingsCache?.enabled;
     enabledLabel.innerText = enabled ? 'Asistente activo con permisos del usuario' : 'Asistente pausado';
-    modelInput.value = aiSettingsCache?.model || 'openrouter:openai/gpt-4o-mini';
+    modelInput.value = aiSettingsCache?.model || 'local:qwen3.5:cloud';
     const fallbackInput = document.getElementById('aiFallbackModelInput');
-    if (fallbackInput) fallbackInput.value = aiSettingsCache?.fallback_model || 'local:llama3.2';
+    if (fallbackInput) fallbackInput.value = aiSettingsCache?.fallback_model || 'local:qwen3.5:0.8b';
 }
 
 async function toggleAiEnabled() {
@@ -1090,8 +1109,8 @@ async function saveAiSettings(extra = null) {
     const modelInput = document.getElementById('aiModelInput');
     const fallbackInput = document.getElementById('aiFallbackModelInput');
     const payload = {
-        model: modelInput ? modelInput.value : (aiSettingsCache?.model || 'openrouter:openai/gpt-4o-mini'),
-        fallback_model: fallbackInput ? fallbackInput.value : (aiSettingsCache?.fallback_model || 'local:llama3.2'),
+        model: modelInput ? modelInput.value : (aiSettingsCache?.model || 'local:qwen3.5:cloud'),
+        fallback_model: fallbackInput ? fallbackInput.value : (aiSettingsCache?.fallback_model || 'local:qwen3.5:0.8b'),
         enabled: aiSettingsCache?.enabled ?? true,
         ...(extra || {}),
     };

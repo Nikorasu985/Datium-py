@@ -156,11 +156,7 @@ async function login() {
                 usuarioActual = data.usuario;
             }
             showSuccess('¡Bienvenido!', () => {
-                if (data.usuario && data.usuario.role === 'admin') {
-                    window.location.href = 'admin.html';
-                } else {
-                    redirigirAIndex();
-                }
+                redirigirAIndex();
             });
         } else {
             showError('Error: ' + (data.error || 'Credenciales inválidas'));

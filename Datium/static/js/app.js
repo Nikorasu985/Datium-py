@@ -313,9 +313,27 @@ function toggleSidebar() {
     }
 }
 
+function injectAiNavLink() {
+    const nav = document.querySelector('aside nav');
+    if (!nav || document.querySelector('aside nav a[href="chat.html"]')) return;
+    const current = (window.location.pathname || '').toLowerCase();
+    const isChat = current.endsWith('/chat.html') || current.endsWith('/chatbot/chat.html');
+    const active = isChat
+        ? 'bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm shadow-emerald-500/10'
+        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium';
+    const html = `
+        <a href="chat.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${active}">
+            <span class="material-symbols-outlined">smart_toy</span>
+            Datium IA
+        </a>
+    `;
+    nav.insertAdjacentHTML('beforeend', html);
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
     injectLoadingHTML();
+    injectAiNavLink();
     // Add overlay if not exists
     if (!document.getElementById('sidebarOverlay')) {
         const overlay = document.createElement('div');

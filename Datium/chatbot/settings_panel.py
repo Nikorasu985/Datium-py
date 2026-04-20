@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import json
+import os
 from typing import Any, Dict
 
 from django.http import JsonResponse
@@ -11,7 +13,37 @@ from .permissions import ensure_authenticated
 
 
 # Config simple en memoria.
-_CONFIG = AiConfig(model="openrouter:openai/gpt-4o-mini", fallback_model="local:llama3.2", enabled=True)
+_CONFIG = AiConfig(model="local:qwen3.5:cloud", fallback_model="local:qwen3.5:0.8b", enabled=True, chatbot_id="datium-default")
+
+
+def get_available_chatbots() -> list[dict]:
+    raw = (os.getenv("DATIUM_CHATBOTS", "") or "").strip()
+    if not raw:
+        return [
+            {"id": "datium-default", "name": "Datium IA", "model": "local:qwen3.5:cloud"},
+        ]
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            clean = []
+            for item in parsed:
+                if not isinstance(item, dict):
+                    continue
+                bot_id = str(item.get("id", "")).strip()
+                if not bot_id:
+                    continue
+                clean.append(
+                    {
+                        "id": bot_id,
+                        "name": str(item.get("name", bot_id)).strip(),
+                        "model": str(item.get("model", _CONFIG.model)).strip(),
+                    }
+                )
+            if clean:
+                return clean
+    except Exception:
+        pass
+    return [{"id": "datium-default", "name": "Datium IA", "model": _CONFIG.model}]
 
 
 @api_view(["GET", "PUT"])

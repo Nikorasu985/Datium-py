@@ -13,7 +13,7 @@ from .ai_engine import (
 )
 from .file_handler import extract_text_from_file
 from .permissions import ensure_ai_plan_access, ensure_authenticated, ensure_system_access
-from .settings_panel import get_ai_config
+from .settings_panel import get_ai_config, get_available_chatbots
 from .settings_panel import ai_settings_view
 from .system_context import get_active_system_id_from_request
 from .action_router import route_action
@@ -283,6 +283,11 @@ def chat_view(request, system_id=None):
             cfg = get_ai_config()
             if not cfg.enabled:
                 return JsonResponse({'error': 'IA desactivada en configuración.'}, status=503)
+            selected_chatbot_id = ""
+            try:
+                selected_chatbot_id = (request.data.get("chatbot_id") or "").strip()
+            except Exception:
+                selected_chatbot_id = (request.POST.get("chatbot_id") or "").strip()
 
             user_message_content = ""
             try:
@@ -332,7 +337,10 @@ def chat_view(request, system_id=None):
                 messages_llm.append({'role': role, 'content': msg.content})
 
             try:
-                ai_text = ollama_chat(cfg.model, messages_llm, cfg.fallback_model)
+                available = get_available_chatbots()
+                bot = next((b for b in available if b.get("id") == selected_chatbot_id), None) if selected_chatbot_id else None
+                target_model = (bot or {}).get("model") or cfg.model
+                ai_text = ollama_chat(target_model, messages_llm, cfg.fallback_model)
                 parsed = parse_actions_from_ai_text(ai_text)
                 content = strip_json_block(ai_text) or "No se obtuvo una respuesta válida del modelo."
 
@@ -360,6 +368,7 @@ def chat_view(request, system_id=None):
                         'summary': parsed.get('summary', ''),
                         'actions': actions,
                         "conversation": {"id": conv.id, "title": conv.title},
+                        "chatbot": {"id": (bot or {}).get("id", cfg.chatbot_id), "name": (bot or {}).get("name", "Datium IA")},
                     },
                     status=201,
                 )
@@ -485,6 +494,16 @@ def model_status(request):
     if not cfg.enabled:
         return JsonResponse({'status': 'OFFLINE', 'model': cfg.model, 'fallback_model': cfg.fallback_model, 'enabled': False})
     return JsonResponse({'status': 'ONLINE', 'model': cfg.model, 'fallback_model': cfg.fallback_model, 'enabled': True})
+
+
+@api_view(['GET'])
+def chatbots_view(request):
+    user, perm = ensure_authenticated(request)
+    if not perm.allowed:
+        return JsonResponse({'error': perm.reason}, status=401)
+    cfg = get_ai_config()
+    bots = get_available_chatbots()
+    return JsonResponse({"status": "success", "chatbots": bots, "selected": cfg.chatbot_id})
 
 
 @api_view(['GET'])

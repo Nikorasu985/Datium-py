@@ -275,13 +275,13 @@
 
                 <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700">
                     <div class="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Motor principal</div>
-                    <input id="aiModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="openrouter:openai/gpt-4o-mini">
+                    <input id="aiModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="local:qwen3.5:cloud">
                     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Motor cloud recomendado para respuestas formales y precisas.</p>
                 </div>
 
                 <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700">
                     <div class="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">Respaldo local</div>
-                    <input id="aiFallbackModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="local:llama3.2">
+                    <input id="aiFallbackModelInput" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/40 text-sm font-bold dark:text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all" placeholder="local:qwen3.5:0.8b">
                     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Se usa automáticamente si el motor cloud no responde.</p>
                     <button onclick="saveAiSettings()" class="mt-3 w-full py-3 rounded-2xl bg-emerald-500 text-white font-black text-[11px] uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">Guardar ajustes</button>
                 </div>
@@ -291,7 +291,7 @@
 
     <script src="{% static 'js/auth.js' %}"></script>
     <script src="{% static 'js/app.js' %}"></script>
-    <script src="{% static 'chatbot/chat.js' %}?v={% now 'U' %}"></script>
+    <script src="{% static 'chatbot/chat.js' %}"></script>
     <script>
         async function loadUserInfo() {
             const res = await apiFetch('/user/profile');
