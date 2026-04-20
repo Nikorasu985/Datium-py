@@ -421,4 +421,72 @@ async function handleBulkImport(event) {
     }
 }
 
+function openInviteModal() {
+    document.getElementById('inviteModal').classList.remove('hidden');
+    const list = document.getElementById('inviteTablesList');
+    list.innerHTML = allTables.map(t => `
+        <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-gray-400">table_rows</span>
+                <span class="text-sm font-bold text-gray-700 dark:text-gray-200">${sanitize(t.name)}</span>
+            </div>
+            <div class="flex gap-4">
+                <label class="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase cursor-pointer" title="Leer">
+                    <input type="checkbox" class="table-perm-read rounded border-gray-300 text-primary" data-table-id="${t.id}" checked> R
+                </label>
+                <label class="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase cursor-pointer" title="Crear">
+                    <input type="checkbox" class="table-perm-create rounded border-gray-300 text-primary" data-table-id="${t.id}"> C
+                </label>
+                <label class="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase cursor-pointer" title="Editar">
+                    <input type="checkbox" class="table-perm-update rounded border-gray-300 text-primary" data-table-id="${t.id}"> U
+                </label>
+                <label class="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase cursor-pointer" title="Eliminar">
+                    <input type="checkbox" class="table-perm-delete rounded border-gray-300 text-primary" data-table-id="${t.id}"> D
+                </label>
+            </div>
+        </div>
+    `).join('');
+}
+
+function closeInviteModal() {
+    document.getElementById('inviteModal').classList.add('hidden');
+    document.getElementById('inviteEmail').value = '';
+}
+
+function toggleAllPerms(type) {
+    const checked = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`).checked;
+    document.querySelectorAll(`.table-perm-${type}`).forEach(cb => cb.checked = checked);
+}
+
+async function submitInvite() {
+    const email = document.getElementById('inviteEmail').value.trim();
+    if (!email) return showError('Ingresa un email válido');
+
+    const tablePerms = allTables.map(t => ({
+        tableId: t.id,
+        read: document.querySelector(`.table-perm-read[data-table-id="${t.id}"]`).checked,
+        create: document.querySelector(`.table-perm-create[data-table-id="${t.id}"]`).checked,
+        update: document.querySelector(`.table-perm-update[data-table-id="${t.id}"]`).checked,
+        delete: document.querySelector(`.table-perm-delete[data-table-id="${t.id}"]`).checked
+    }));
+
+    showLoading('Enviando invitación...');
+    try {
+        const res = await apiFetch(`/systems/${systemId}/collaborators`, {
+            method: 'POST',
+            body: JSON.stringify({ email, tablePerms })
+        });
+
+        if (res.ok) {
+            showSuccess('Invitación enviada exitosamente');
+            closeInviteModal();
+        } else {
+            const err = await res.json();
+            showError(err.error || 'No se pudo enviar la invitación');
+        }
+    } catch (e) {
+        showError('Error de servidor');
+    }
+}
+
 init();

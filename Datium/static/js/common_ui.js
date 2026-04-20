@@ -13,8 +13,8 @@ function injectReportButton() {
     btn.id = 'universalReportBtn';
     btn.className = 'fixed bottom-6 right-6 w-14 h-14 bg-red-500 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-red-600 transition-all z-50 hover:scale-110 active:scale-90 group';
     btn.innerHTML = `
-        <span class="material-symbols-outlined text-2xl">report</span>
-        <span class="absolute right-16 bg-gray-900 text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-black uppercase tracking-widest pointer-events-none">Reportar Error</span>
+        <span class="material-symbols-outlined text-[10px]">report</span>
+        <span class="text-[10px] font-black uppercase tracking-widest">Reportar</span>
     `;
     btn.onclick = openReportModal;
     document.body.appendChild(btn);
@@ -74,6 +74,23 @@ function closeReportModal() {
     document.getElementById('reportModal').classList.remove('flex');
 }
 
+// Helper function to get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 async function submitReport() {
     const title = document.getElementById('reportTitle').value;
     const summary = document.getElementById('reportSummary').value;
@@ -83,15 +100,20 @@ async function submitReport() {
         return;
     }
 
+    const reportText = `Asunto: ${title}\nDescripción: ${summary}`;
+
     try {
         // En un entorno productivo usaríamos html2canvas aquí
         const res = await fetch('/api/user/reports', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
             body: JSON.stringify({
-                title,
-                summary,
-                screenshotUrl: window.location.href // Mock de captura como la URL actual
+                title: 'Reporte de Usuario',
+                summary: reportText,
+                screenshotUrl: '' // Potentially implement screenshot capture later
             })
         });
 

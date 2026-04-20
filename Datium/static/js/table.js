@@ -15,6 +15,38 @@ async function init() {
     await getSystemId();
     await loadData();
     loadSidebarInfo();
+    initSortable();
+}
+
+function initSortable() {
+    const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    Sortable.create(tbody, {
+        animation: 150,
+        handle: '.drag-handle',
+        ghostClass: 'sortable-ghost',
+        onEnd: async () => {
+            await updateRecordOrder();
+        }
+    });
+}
+
+async function updateRecordOrder() {
+    const rows = document.querySelectorAll('#tableBody tr');
+    const order = Array.from(rows).map(row => parseInt(row.dataset.id));
+    
+    showLoading('Actualizando orden...');
+    const res = await apiFetch(`/tables/${tableId}/records/reorder`, {
+        method: 'PUT',
+        body: JSON.stringify({ order })
+    });
+    
+    if (res.ok) {
+        showSuccess('Orden actualizado');
+    } else {
+        showError('Error al actualizar el orden');
+        loadData(); // Revert
+    }
 }
 
 async function getSystemId() {
@@ -27,11 +59,6 @@ async function getSystemId() {
             currentPermissions = table.permissions || currentPermissions;
             
             // Ocultar botón de registrar si no tiene permiso
-            const registerBtn = document.getElementById('btnOpenAddRecord');
-            if (registerBtn && !currentPermissions.create) {
-                registerBtn.style.display = 'none';
-            }
-
             const sysRes = await apiFetch(`/systems/${currentSystemId}`);
             if (sysRes.ok) {
                 const sys = await sysRes.json();
@@ -106,6 +133,7 @@ function renderTableHead() {
     const thead = document.getElementById('tableHead');
     thead.innerHTML = `
         <tr>
+            <th class="px-6 py-3 w-10"></th>
             <th class="px-6 py-3 text-left">
                 <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="rounded border-gray-300 text-primary focus:ring-primary">
             </th>
@@ -123,7 +151,12 @@ function renderTableBody(records) {
     currentRecords = records;
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = records.map(r => `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group" data-id="${r.id}">
+            <td class="px-4 py-4 w-10">
+                <div class="drag-handle opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing text-gray-400 hover:text-primary transition-all">
+                    <span class="material-symbols-outlined text-lg">drag_indicator</span>
+                </div>
+            </td>
             <td class="px-6 py-4">
                 <input type="checkbox" class="record-checkbox rounded border-gray-300 text-primary focus:ring-primary" value="${r.id}" onchange="updateBulkActions()">
             </td>
@@ -136,7 +169,6 @@ function renderTableBody(records) {
                     val = relationCache[f.id][val] || val || '';
                 }
 
-                // Handle booleans
                 if (f.type === 'boolean') {
                     if (val === true || val === 'true') val = '<span class="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 font-bold text-xs">Sí</span>';
                     else if (val === false || val === 'false') val = '<span class="px-2 py-1 rounded-lg bg-red-500/10 text-red-500 font-bold text-xs">No</span>';
@@ -454,47 +486,92 @@ function selectRelationOption(fieldId, id, val) {
 function getInputType(type) {
     if (type === 'number') return 'number';
     if (type === 'date') return 'date';
+    if (type === 'email') return 'email';
+    if (type === 'url') return 'url';
+    if (type === 'phone') return 'tel';
+    if (type === 'time') return 'time';
+    if (type === 'file') return 'file';
     return 'text';
 }
 
 async function exportTable(format = 'csv') {
+    showLoading(`Generando archivo ${format.toUpperCase()}...`);
     try {
-        const res = await apiFetch(`/tables/${tableId}/export?format=${format}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'success') {
-                // Convert JSON to CSV/Excel/PDF or download as JSON
-                if (format === 'json') {
-                    const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
-                    downloadBlob(blob, `tabla_${tableId}.json`);
-                } else {
-                    // Fallback to direct download if backend supports it
-                    const blobRes = await fetch(`/api/tables/${tableId}/export?format=${format}`, {
-                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-                    });
-                    const blob = await blobRes.blob();
-                    downloadBlob(blob, `tabla_${tableId}.${format}`);
+        const token = getToken();
+        if (!token) {
+            showError('Sesión expirada. Por favor inicia sesión nuevamente.');
+            return;
+        }
+        
+        const endpoint = `/tables/${tableId}/export?format=${format}`;
+        console.log('[ExportTable] Requesting:', endpoint);
+        
+        const response = await apiFetch(endpoint);
+
+        if (!response) {
+            // apiFetch handled the 401 locally (or returned undefined on network failure)
+            throw new Error('Error de red o sesión expirada');
+        }
+
+        console.log('[ExportTable] Response status:', response.status, 'ok:', response.ok);
+
+        if (response.ok) {
+            const blob = await response.blob();
+            console.log('[ExportTable] Blob received. size:', blob.size, 'type:', blob.type);
+            
+            let finalFilename = '';
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition && disposition.indexOf('filename=') !== -1) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                if (matches != null && matches[1]) { 
+                  finalFilename = matches[1].replace(/['"]/g, '');
                 }
-                showSuccess('Tabla exportada correctamente');
             }
+            
+            if (!finalFilename) {
+                const date = new Date().toISOString().slice(0, 10);
+                const tableNameEl = document.getElementById('tableName');
+                let tableName = 'tabla';
+                if (tableNameEl) {
+                    tableName = tableNameEl.innerText.replace(/[\r\n]+/g, '').trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+                }
+                const ext = format === 'xlsx' ? 'xlsx' : format;
+                finalFilename = `export_${tableName}_${date}.${ext}`;
+            }
+            
+            downloadBlob(blob, finalFilename);
+            showSuccess(`¡Tabla exportada con éxito como ${format.toUpperCase()}!`);
         } else {
-            showError('Error exportando tabla (' + format + ')');
+            let errMsg = `Error al exportar (HTTP ${response.status})`;
+            try {
+                const errJson = await response.json();
+                console.error('[ExportTable] Server error JSON:', errJson);
+                errMsg = errJson.error || errJson.detail || errMsg;
+            } catch {
+                const errText = await response.text().catch(() => '');
+                console.error('[ExportTable] Server error text (first 200 chars):', errText.slice(0, 200));
+            }
+            showError(errMsg);
         }
     } catch (e) {
-        console.error(e);
-        showError('Error exportando tabla');
+        console.error('[ExportTable] Network/fetch error:', e);
+        showError('No se pudo conectar con el servidor para la exportación');
+    } finally {
+        hideLoading();
     }
 }
 
 function downloadBlob(blob, filename) {
-    const url = window.URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    // Fallback security for extension
+    a.download = filename || "export_datium_data.xlsx";
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
-    a.remove();
+    document.body.removeChild(a);
+    // Chromium/Edge delay fix to avoid blob UUID renaming
+    setTimeout(() => { URL.revokeObjectURL(url); }, 2000);
 }
 
 function openImportModal() {
@@ -505,6 +582,10 @@ function openImportModal() {
 }
 function closeImportModal() {
     document.getElementById('importModal').classList.add('hidden');
+}
+
+function showImportGuide() {
+    document.getElementById('guideModal').classList.remove('hidden');
 }
 
 let pendingImportData = [];
@@ -533,7 +614,6 @@ function parseCSV(text) {
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (lines.length === 0) return [];
     
-    // Detect separator
     const firstLine = lines[0];
     const separator = firstLine.includes(';') && (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
     
@@ -553,12 +633,18 @@ function parseCSV(text) {
         return result;
     };
 
-    const headers = parseLine(lines[0]).map(h => h.toLowerCase());
+    const headers = parseLine(lines[0]).map(h => h.trim());
     return lines.slice(1).map(line => {
         const values = parseLine(line);
         const obj = {};
         headers.forEach((h, i) => {
-            if (h) obj[h] = values[i] || '';
+            if (h) {
+                let val = values[i] || '';
+                // Robust normalization
+                if (val.toLowerCase() === 'sí' || val.toLowerCase() === 'si' || val.toLowerCase() === 'true') val = 'true';
+                if (val.toLowerCase() === 'no' || val.toLowerCase() === 'false') val = 'false';
+                obj[h] = val;
+            }
         });
         return obj;
     });

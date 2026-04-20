@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+MAX_INT32 = 2147483647
+
 
 @dataclass(frozen=True)
 class SystemContext:
@@ -24,7 +26,10 @@ def get_active_system_id_from_request(request) -> Optional[int]:
     if sys_id in (None, "", "null", "None"):
         return None
     try:
-        return int(sys_id)
+        value = int(sys_id)
+        if value < 1 or value > MAX_INT32:
+            return None
+        return value
     except Exception:
         return None
 

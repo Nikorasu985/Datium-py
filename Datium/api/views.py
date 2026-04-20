@@ -8,15 +8,44 @@ from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from datetime import timedelta
-import uuid, os, csv, json
+import uuid, os, csv, json, logging
 from io import StringIO
+from django.contrib.auth.hashers import make_password, check_password
 
 from .models import (
     Plan, User, System, SystemTable, SystemField,
     SystemFieldOption, SystemRecord, SystemRecordValue,
     SystemRelationship, AuditLog, SecurityAudit,
-    SystemCollaborator, AppSetting, UserReport, BlockedIP
+    SystemCollaborator, AppSetting, UserReport, BlockedIP,
+    Discount, Payment
 )
+from io import StringIO, BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+
+logger = logging.getLogger(__name__)
+
+
+def _verify_password(plain, hashed):
+    """Verify a password against its hash. Supports both Django hashed and legacy plain-text."""
+    if not hashed:
+        return False
+    # If stored hash looks like a Django hash, use check_password
+    if hashed.startswith(('pbkdf2_', 'bcrypt', 'argon2', 'scrypt')):
+        return check_password(plain, hashed)
+    # Legacy plain-text comparison (will be upgraded on next login)
+    return plain == hashed
+
+
+def _ensure_hashed(user):
+    """If user's password is still plain-text, upgrade it to a proper hash."""
+    if not user.password_hash.startswith(('pbkdf2_', 'bcrypt', 'argon2', 'scrypt')):
+        user.password_hash = make_password(user.password_hash)
+        user.save(update_fields=['password_hash'])
 
 
 # ═══════════════════════════════════════════
@@ -37,30 +66,35 @@ def get_current_user(request):
         return None
 
 def seed_data():
-    """Seeds initial plans and admin user if they don't exist, and ensures admin credentials are synced."""
+    """Seeds initial plans and admin user if they don't exist."""
     # Plans
     plans = [
-        {'name': 'Gratuito', 'max_systems': 1, 'max_tables_per_system': 3, 'max_records_per_table': 100},
-        {'name': 'Pro', 'max_systems': 5, 'max_tables_per_system': 10, 'max_records_per_table': 5000},
-        {'name': 'Empresarial', 'max_systems': 100, 'max_tables_per_system': 50, 'max_records_per_table': 1000000},
+        {'name': 'Free', 'price': 0, 'max_systems': 1, 'max_tables_per_system': 3, 'max_records_per_table': 100},
+        {'name': 'Pro', 'price': 20, 'max_systems': 5, 'max_tables_per_system': 10, 'max_records_per_table': 5000},
+        {'name': 'Corporate', 'price': 50, 'max_systems': 100, 'max_tables_per_system': 50, 'max_records_per_table': 1000000},
     ]
     for p_data in plans:
         Plan.objects.get_or_create(name=p_data['name'], defaults=p_data)
     
-    # Admin User
-    admin_email = 'Ibzantrabajo@gmail.com'
-    plan_emp = Plan.objects.filter(name='Empresarial').first()
+    # Admin User - only create if doesn't exist, read credentials from env
+    admin_email = os.getenv('DATIUM_ADMIN_EMAIL', 'Ibzantrabajo@gmail.com')
+    admin_password = os.getenv('DATIUM_ADMIN_PASSWORD', 'Datium777')
+    plan_corp = Plan.objects.filter(name='Corporate').first()
     
-    # Use update_or_create to ensure password and role are ALWAYS correct
-    User.objects.update_or_create(
+    admin_user, created = User.objects.get_or_create(
         email=admin_email,
         defaults={
             'name': 'Administrador Datium',
-            'password_hash': 'Datium777',
+            'password_hash': make_password(admin_password),
             'role': 'admin',
-            'plan': plan_emp
+            'plan': plan_corp
         }
     )
+    # If admin exists but password is still plain-text, hash it
+    if not created and not admin_user.password_hash.startswith(('pbkdf2_', 'bcrypt', 'argon2')):
+        admin_user.password_hash = make_password(admin_password)
+        admin_user.role = 'admin'
+        admin_user.save()
 
 
 def require_auth(request):
@@ -73,8 +107,8 @@ def require_admin(request):
     user = get_current_user(request)
     if not user:
         return None, Response({'error': 'No autenticado'}, status=401)
-    if user.role != 'admin':
-        return None, Response({'error': 'No tienes permisos de administrador'}, status=403)
+    if user.email.lower() != 'ibzantrabajo@gmail.com':
+        return None, Response({'error': 'No tienes permisos de administrador global. Dashboard restringido.'}, status=403)
     return user, None
 
 
@@ -177,14 +211,18 @@ def login_view(request):
     
     try:
         user = User.objects.filter(email__iexact=email).first()
-        if user and user.password_hash == password:
+        if user and _verify_password(password, user.password_hash):
+            # Upgrade plain-text password to hash if needed
+            _ensure_hashed(user)
             request.session['user_id'] = user.id
             return Response({
                 'token': str(uuid.uuid4()),
                 'usuario': {
                     'id': user.id, 'name': user.name, 'email': user.email,
                     'avatarUrl': user.avatar_url or '',
-                    'role': user.role
+                    'role': user.role,
+                    'terms_version_accepted': user.terms_version_accepted,
+                    'session_timeout_minutes': user.session_timeout_minutes,
                 }
             })
         return Response({'error': 'Credenciales inválidas'}, status=401)
@@ -194,22 +232,46 @@ def login_view(request):
 
 @api_view(['POST'])
 def registro_view(request):
-    nombre = request.data.get('nombre')
-    email = request.data.get('email')
-    password = request.data.get('password')
-    plan_id = request.data.get('planId', 1)
+    try:
+        seed_data()
+        nombre = (request.data.get('nombre') or '').strip()
+        email = (request.data.get('email') or '').strip().lower()
+        password = request.data.get('password', '')
+        phone = (request.data.get('phone') or '').strip()
+        plan_id = request.data.get('planId', 1)
 
-    if User.objects.filter(email=email).exists():
-        return Response({'error': 'El email ya está en uso'}, status=400)
+        if not email or not nombre or not password:
+            return Response({'error': 'Nombre, email y password son obligatorios'}, status=400)
 
-    plan = Plan.objects.filter(id=plan_id).first()
-    user = User.objects.create(name=nombre, email=email, password_hash=password, plan=plan)
-    request.session['user_id'] = user.id
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({'error': 'El email ya esta en uso'}, status=400)
 
-    return Response({
-        'token': str(uuid.uuid4()),
-        'usuario': {'id': user.id, 'name': user.name, 'email': user.email}
-    }, status=201)
+        # Unique phone check (if provided)
+        if phone and User.objects.filter(phone=phone).exists():
+            return Response({'error': 'El telefono ya esta registrado en otra cuenta'}, status=400)
+
+        # Resolve plan
+        plan_map = {1: 'Free', '1': 'Free', 2: 'Pro', '2': 'Pro', 3: 'Corporate', '3': 'Corporate'}
+        plan_name = plan_map.get(plan_id) or plan_map.get(str(plan_id), 'Free')
+        plan = Plan.objects.filter(name__iexact=plan_name).first()
+
+        user = User.objects.create(
+            name=nombre,
+            email=email,
+            phone=phone if phone else None,
+            password_hash=make_password(password),
+            plan=plan,
+            avatar_url=None
+        )
+        request.session['user_id'] = user.id
+
+        return Response({
+            'token': str(uuid.uuid4()),
+            'usuario': {'id': user.id, 'name': user.name, 'email': user.email, 'avatarUrl': ''}
+        }, status=201)
+    except Exception as e:
+        logging.error(f"Error en registro: {str(e)}", exc_info=True)
+        return Response({'error': f'Error interno: {str(e)}'}, status=500)
 
 
 @api_view(['POST'])
@@ -235,18 +297,35 @@ def user_profile_view(request):
 
     if request.method == 'GET':
         plan_name = user.plan.name if user.plan else 'Gratuito'
+        
+        # Terms check
+        version_setting = AppSetting.objects.filter(key='terms_version').first()
+        current_terms_version = int(version_setting.value if version_setting else 1)
+        needs_terms_acceptance = user.terms_version_accepted < current_terms_version
+        
+        terms_content = ""
+        if needs_terms_acceptance:
+            content_setting = AppSetting.objects.filter(key='terms_content').first()
+            terms_content = content_setting.value if content_setting else "<h1>Términos y Condiciones</h1><p>Por favor acepta para continuar.</p>"
+
         return Response({
             'id': user.id, 'name': user.name, 'email': user.email,
             'avatarUrl': user.avatar_url or '',
             'planId': user.plan_id, 'planName': plan_name,
             'role': getattr(user, 'role', 'user'),
             'createdAt': user.created_at.isoformat() if user.created_at else None,
+            'needsTermsAcceptance': needs_terms_acceptance,
+            'termsContent': terms_content,
+            'termsVersion': current_terms_version
         })
     else:
         name = request.data.get('name')
+        phone = request.data.get('phone')
         if name is not None:
             user.name = name
-            user.save()
+        if phone is not None:
+            user.phone = phone
+        user.save()
         return Response({'ok': True})
 
 
@@ -257,9 +336,11 @@ def user_password_view(request):
         return err
     current = request.data.get('currentPassword')
     new_pwd = request.data.get('newPassword')
-    if user.password_hash != current:
-        return Response({'error': 'Contraseña actual incorrecta'}, status=400)
-    user.password_hash = new_pwd
+    if not _verify_password(current, user.password_hash):
+        return Response({'error': 'Password actual incorrecta'}, status=400)
+    if not new_pwd or len(new_pwd) < 6:
+        return Response({'error': 'La nueva password debe tener al menos 6 caracteres'}, status=400)
+    user.password_hash = make_password(new_pwd)
     user.save()
     return Response({'ok': True})
 
@@ -298,7 +379,7 @@ def user_verify_password_view(request):
     if err:
         return err
     password = request.data.get('password')
-    if user.password_hash == password:
+    if _verify_password(password, user.password_hash):
         return Response({'ok': True})
     return Response({'error': 'Contraseña incorrecta'}, status=401)
 
@@ -314,9 +395,9 @@ def systems_list_view(request):
 
     if request.method == 'GET':
         # Sistemas propios + sistemas donde soy colaborador
-        owned = System.objects.filter(owner=user)
+        owned = System.objects.filter(owner=user).select_related('owner')
         collab_ids = SystemCollaborator.objects.filter(user=user, can_read=True).values_list('system_id', flat=True)
-        collab_systems = System.objects.filter(id__in=collab_ids)
+        collab_systems = System.objects.filter(id__in=collab_ids).select_related('owner')
         
         all_systems = (owned | collab_systems).distinct().order_by('-created_at')
         return Response([serialize_system(s) for s in all_systems])
@@ -1123,12 +1204,7 @@ def upload_image_view(request):
 # REPORTS & ADMIN
 # ═══════════════════════════════════════════
 
-def require_admin(request):
-    user, err = require_auth(request)
-    if err: return None, err
-    if getattr(user, 'role', 'user') != 'admin':
-        return None, Response({'error': 'No autorizado. Se requiere rol de administrador.'}, status=403)
-    return user, None
+
 
 
 @api_view(['POST'])
@@ -1160,18 +1236,7 @@ def admin_policies_view(request):
         return Response({'ok': True})
 
 
-@api_view(['GET'])
-def admin_reports_view(request):
-    user, err = require_admin(request)
-    if err: return err
-    reps = UserReport.objects.all().order_by('-created_at')
-    data = [{
-        'id': r.id, 'title': r.title, 'summary': r.summary,
-        'screenshot_url': r.screenshot_url, 'status': r.status,
-        'createdAt': r.created_at.isoformat(),
-        'userEmail': r.user.email if r.user else ''
-    } for r in reps]
-    return Response(data)
+# admin_reports_view moved to consolidated version below
 
 
 @api_view(['PUT'])
@@ -1187,18 +1252,7 @@ def admin_report_detail_view(request, pk):
     return Response({'ok': True, 'status': rep.status})
 
 
-@api_view(['GET'])
-def admin_plans_view(request):
-    user, err = require_admin(request)
-    if err: return err
-    plans = Plan.objects.all().order_by('id')
-    data = [{
-        'id': p.id, 'name': p.name, 'max_systems': p.max_systems,
-        'max_tables_per_system': p.max_tables_per_system,
-        'max_storage_mb': p.max_storage_mb,
-        'price_monthly': getattr(p, 'price_monthly', 0)
-    } for p in plans]
-    return Response(data)
+# admin_plans_view moved to consolidated version below
 
 
 @api_view(['PUT'])
@@ -1215,6 +1269,8 @@ def admin_plan_detail_view(request, pk):
     plan.max_tables_per_system = request.data.get('max_tables_per_system', plan.max_tables_per_system)
     plan.max_storage_mb = request.data.get('max_storage_mb', plan.max_storage_mb)
     plan.save()
+    return Response({'ok': True, 'planName': plan.name})
+
 @api_view(['GET'])
 def admin_dashboard_view(request):
     user, err = require_admin(request)
@@ -1237,18 +1293,17 @@ def admin_dashboard_view(request):
 def admin_reports_view(request):
     user, err = require_admin(request)
     if err: return err
-    """List and manage user reports."""
     if request.method == 'POST':
         rid = request.data.get('report_id')
-        status = request.data.get('status')
-        if rid and status:
-            UserReport.objects.filter(id=rid).update(status=status)
+        new_status = request.data.get('status')
+        if rid and new_status:
+            UserReport.objects.filter(id=rid).update(status=new_status)
         return JsonResponse({'status': 'success'})
-        
+
     reports = UserReport.objects.all().order_by('-created_at')
     data = [{
         'id': r.id,
-        'user': r.user.email,
+        'user': r.user.email if r.user else '',
         'title': r.title,
         'summary': r.summary,
         'screenshot_url': r.screenshot_url,
@@ -1261,7 +1316,6 @@ def admin_reports_view(request):
 def admin_plans_view(request):
     user, err = require_admin(request)
     if err: return err
-    """List and manage plans."""
     if request.method == 'POST':
         pid = request.data.get('id')
         name = request.data.get('name')
@@ -1271,7 +1325,7 @@ def admin_plans_view(request):
         else:
             Plan.objects.create(name=name, max_systems=max_systems)
         return JsonResponse({'status': 'success'})
-        
+
     plans = Plan.objects.all().order_by('id')
     data = [{
         'id': p.id, 'name': p.name, 'max_systems': p.max_systems,
@@ -1351,44 +1405,106 @@ def import_records_view(request, table_id: int):
     except Exception as e:
         return Response({'error': f"Error durante la importación: {str(e)}"}, status=500)
 
-@api_view(['GET'])
+def generate_export_response(header, rows, filename_base, format_param, title="Datium Export"):
+    """Universal helper to generate export responses for CSV, XLSX, and PDF."""
+    now_str = timezone.now().strftime("%Y%m%d_%H%M")
+    
+    if format_param == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename_base}_{now_str}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(header)
+        writer.writerows(rows)
+        return response
+
+    if format_param == 'xlsx':
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        safe_title = "".join([c for c in title if c not in r'\/*?:[]'])
+        ws.title = safe_title[:31]
+        ws.append(header)
+        for cell in ws[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+        for row in rows:
+            ws.append(row)
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try: max_length = max(max_length, len(str(cell.value)))
+                except: pass
+            ws.column_dimensions[column].width = max_length + 2
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename_base}_{now_str}.xlsx"'
+        wb.save(response)
+        return response
+
+    if format_param == 'pdf':
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), topMargin=30)
+        elements = []
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=18, alignment=1, spaceAfter=20)
+        elements.append(Paragraph(title, title_style))
+        table_data = [header] + rows
+        t = Table(table_data, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')])
+        ]))
+        elements.append(t)
+        doc.build(elements)
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename_base}_{now_str}.pdf"'
+        response.write(buffer.getvalue())
+        buffer.close()
+        return response
+
+    return JsonResponse({'status': 'error', 'message': 'Formato no soportado'}, status=400)
+
 def export_records_view(request, table_id: int):
     """Export records from table."""
     user, err = require_auth(request)
-    if err: return err
+    if err: 
+        return JsonResponse({'error': 'No autenticado'}, status=401)
     
     table = SystemTable.objects.filter(id=table_id).first()
-    if not table: return Response({'error': 'Tabla no encontrada'}, status=404)
+    if not table: return JsonResponse({'error': 'Tabla no encontrada (ID Inválido o Eliminada)'}, status=404)
 
     ok, res = check_system_permission(user, table.system_id, 'read')
-    if not ok: return res
+    if not ok: return JsonResponse({'error': 'Accesos insuficientes en la tabla'}, status=403)
     
     records = SystemRecord.objects.filter(table=table).prefetch_related('systemrecordvalue_set__field')
     fields = SystemField.objects.filter(table=table).order_by('order_index')
     
     format_param = request.GET.get('format', 'json').lower()
     
-    if format_param == 'csv':
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="export_{table.name}_{timezone.now().strftime("%Y%m%d")}.csv"'
-        
-        writer = csv.writer(response)
-        header = ['ID'] + [f.name for f in fields]
-        writer.writerow(header)
-        
-        for r in records:
-            vals = {v.field.name: v.value for v in r.systemrecordvalue_set.all()}
-            row = [r.id] + [vals.get(f.name, "") for f in fields]
-            writer.writerow(row)
-        return response
+    header = ['ID'] + [f.name for f in fields]
+    rows = []
+    for r in records:
+        vals = {v.field.name: v.value for v in r.systemrecordvalue_set.all()}
+        row = [r.id] + [vals.get(f.name, "") for f in fields]
+        rows.append(row)
+
+    if format_param in ['csv', 'xlsx', 'pdf']:
+        return generate_export_response(header, rows, f"export_{table.name}", format_param, f"Tabla: {table.name}")
 
     data = []
-    for r in records:
-        row = {'id': r.id}
-        vals = {v.field.name: v.value for v in r.systemrecordvalue_set.all()}
-        for f in fields:
-            row[f.name] = vals.get(f.name, "")
-        data.append(row)
+    for i, r in enumerate(records):
+        row_data = {'id': r.id}
+        for j, val in enumerate(rows[i][1:]):
+            row_data[fields[j].name] = val
+        data.append(row_data)
+
+
     return JsonResponse({'status': 'success', 'data': data})
 @api_view(['GET'])
 def admin_users_page_view(request):
@@ -1461,3 +1577,335 @@ def admin_blocked_ips_view(request):
             BlockedIP.objects.filter(ip_address=ip).delete()
             return Response({'ok': True})
         return Response({'error': 'IP requerida'}, status=400)
+
+
+# ═══════════════════════════════════════════
+# ADDITIONAL VIEWS (RESTORED)
+# ═══════════════════════════════════════════
+
+@api_view(['GET', 'POST'])
+def admin_discounts_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    if request.method == 'POST':
+        code = request.data.get('code')
+        percentage = request.data.get('percentage')
+        if code and percentage:
+            Discount.objects.create(code=code, percentage=percentage)
+        return Response({'ok': True})
+    discounts = Discount.objects.all().order_by('-created_at')
+    return Response([{'id': d.id, 'code': d.code, 'percentage': float(d.percentage), 'is_active': d.is_active} for d in discounts])
+
+@api_view(['PUT', 'DELETE'])
+def admin_discount_detail_view(request, pk):
+    user, err = require_admin(request)
+    if err: return err
+    discount = get_object_or_404(Discount, id=pk)
+    if request.method == 'DELETE':
+        discount.delete()
+        return Response({'ok': True})
+    discount.code = request.data.get('code', discount.code)
+    discount.percentage = request.data.get('percentage', discount.percentage)
+    discount.is_active = request.data.get('is_active', discount.is_active)
+    discount.save()
+    return Response({'ok': True})
+
+@api_view(['GET'])
+def admin_payments_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    payments = Payment.objects.all().order_by('-created_at')
+    return Response([{
+        'id': p.id, 'user': p.user.email if p.user else '', 'amount': float(p.amount), 
+        'status': p.status, 'createdAt': p.created_at.isoformat()
+    } for p in payments])
+
+@api_view(['GET', 'POST'])
+def admin_tyc_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    if request.method == 'GET':
+        content_setting, _ = AppSetting.objects.get_or_create(key='terms_content', defaults={'value': '<h1>Términos y Condiciones</h1><p>Acepta para continuar.</p>'})
+        version_setting, _ = AppSetting.objects.get_or_create(key='terms_version', defaults={'value': '1'})
+        return Response({'content': content_setting.value, 'version': version_setting.value})
+    
+    content = request.data.get('content')
+    if content:
+        content_setting, _ = AppSetting.objects.get_or_create(key='terms_content')
+        content_setting.value = content
+        content_setting.save()
+        
+        version_setting, _ = AppSetting.objects.get_or_create(key='terms_version', defaults={'value': '0'})
+        new_version = int(version_setting.value or 0) + 1
+        version_setting.value = str(new_version)
+        version_setting.save()
+        
+        return Response({'ok': True, 'version': new_version})
+    return Response({'error': 'Contenido requerido'}, status=400)
+
+@api_view(['POST'])
+def process_payment_view(request):
+    user, err = require_auth(request)
+    if err: return err
+    # Stub for payment logic
+    return Response({'ok': True, 'message': 'Pago procesado (Simulación)'})
+
+@api_view(['GET'])
+def admin_trash_systems_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    systems = System.objects.filter(is_deleted=True)
+    return Response([serialize_system(s) for s in systems])
+
+@api_view(['POST'])
+def admin_trash_restore_view(request, pk):
+    user, err = require_admin(request)
+    if err: return err
+    system = get_object_or_404(System, id=pk)
+    system.is_deleted = False
+    system.save()
+    return Response({'ok': True})
+
+def admin_trash_export_view(request):
+    user, err = require_admin(request)
+    if err:
+        return JsonResponse({'error': 'Permiso denegado'}, status=403)
+    
+    systems = System.objects.filter(is_deleted=True)
+    format_param = request.GET.get('format', 'csv').lower()
+    
+    header = ['ID', 'Nombre', 'Descripción', 'Dueño', 'Fecha Eliminación']
+    rows = []
+    for s in systems:
+        rows.append([s.id, s.name, s.description, s.owner.email, s.updated_at.strftime("%Y-%m-%d %H:%M")])
+        
+    return generate_export_response(header, rows, "admin_trash_systems", format_param, "Sistemas en Papelera")
+
+def admin_export_users_view(request):
+    user, err = require_admin(request)
+    if err:
+        return JsonResponse({'error': 'Permiso denegado'}, status=403)
+    
+    users = User.objects.all().order_by('-created_at')
+    format_param = request.GET.get('format', 'csv').lower()
+    
+    header = ['ID', 'Nombre', 'Email', 'Rol', 'Plan', 'Estado', 'Registro']
+    rows = []
+    for u in users:
+        plan_name = u.plan.name if u.plan else 'Gratis'
+        status = 'Bloqueado' if u.is_suspended else 'Activo'
+        rows.append([u.id, u.name, u.email, u.role, plan_name, status, u.created_at.strftime("%Y-%m-%d")])
+        
+    return generate_export_response(header, rows, "admin_users_nexus", format_param, "Nexus Global: Listado de Usuarios")
+
+def admin_export_reports_view(request):
+    user, err = require_admin(request)
+    if err:
+        return JsonResponse({'error': 'Permiso denegado'}, status=403)
+    
+    reports = UserReport.objects.all().order_by('-created_at')
+    format_param = request.GET.get('format', 'csv').lower()
+    
+    header = ['ID', 'Título', 'Usuario', 'Estado', 'Fecha']
+    rows = []
+    for r in reports:
+        rows.append([r.id, r.title, r.user.email, r.status, r.created_at.strftime("%Y-%m-%d %H:%M")])
+        
+    return generate_export_response(header, rows, "admin_reports_critical", format_param, "Critical Intelligence: Reportes de Usuario")
+
+@api_view(['PUT'])
+def update_table_style_view(request, pk):
+    user, err = require_auth(request)
+    if err: return err
+    table = get_object_or_404(SystemTable, id=pk)
+    # Check permission
+    perms = get_system_permissions(user, table.system)
+    if not perms.get('update'):
+        return Response({'error': 'Sin permisos'}, status=403)
+    table.custom_style_json = json.dumps(request.data.get('style', {}))
+    table.save()
+    return Response({'ok': True})
+
+@api_view(['POST'])
+def accept_terms_view(request):
+    user, err = require_auth(request)
+    if err: return err
+    version = request.data.get('version', 1)
+    user.terms_version_accepted = version
+    user.save()
+    return Response({'ok': True})
+
+@api_view(['PUT'])
+def update_security_settings_view(request):
+    user, err = require_auth(request)
+    if err: return err
+    timeout = request.data.get('session_timeout_minutes')
+    if timeout is not None:
+        user.session_timeout_minutes = int(timeout)
+        user.save()
+    return Response({'ok': True})
+
+@api_view(['PUT'])
+def reorder_fields_view(request, pk):
+    user, err = require_auth(request)
+    if err: return err
+    table = get_object_or_404(SystemTable, id=pk)
+    ok, res = check_system_permission(user, table.system_id, 'update')
+    if not ok: return res
+    
+    order = request.data.get('order', []) # List of field IDs
+    for index, field_id in enumerate(order):
+        SystemField.objects.filter(id=field_id, table=table).update(order_index=index)
+    
+    log_action(user, table.system, 'REORGANIZAR_CAMPOS', f'Campos de la tabla "{table.name}" reorganizados')
+    return Response({'ok': True})
+
+@api_view(['PUT'])
+def reorder_records_view(request, pk):
+    user, err = require_auth(request)
+    if err: return err
+    table = get_object_or_404(SystemTable, id=pk)
+    ok, res = check_system_permission(user, table.system_id, 'update')
+    if not ok: return res
+    
+    order = request.data.get('order', []) # List of record IDs
+    for index, record_id in enumerate(order):
+        SystemRecord.objects.filter(id=record_id, table=table).update(order_index=index)
+    
+    log_action(user, table.system, 'REORGANIZAR_REGISTROS', f'Registros de la tabla "{table.name}" reorganizados')
+    return Response({'ok': True})
+
+
+
+# ===== ADMIN PLAN/DISCOUNT HOTFIX =====
+@api_view(['GET', 'POST'])
+def admin_plans_view(request):
+    if request.method == 'GET':
+        user, err = require_auth(request)
+    else:
+        user, err = require_admin(request)
+    if err: return err
+    if request.method == 'GET':
+        plans = Plan.objects.all().order_by('price', 'name')
+        data = []
+        for p in plans:
+            promo = {}
+            try:
+                promo = json.loads(p.features_json or '{}') if (p.features_json or '').strip().startswith('{') else {'features': json.loads(p.features_json or '[]')}
+            except Exception:
+                promo = {'raw': p.features_json or ''}
+            data.append({
+                'id': p.id,
+                'name': p.name,
+                'max_systems': p.max_systems,
+                'max_tables_per_system': p.max_tables_per_system,
+                'max_records_per_table': p.max_records_per_table,
+                'max_fields_per_table': p.max_fields_per_table,
+                'max_storage_mb': p.max_storage_mb,
+                'price': float(p.price),
+                'is_active': p.is_active,
+                'has_ai_assistant': p.has_ai_assistant,
+                'promo': promo,
+            })
+        return Response(data)
+
+    payload = request.data
+    pid = payload.get('id')
+    promo = payload.get('promo') or {}
+    features_json = json.dumps(promo, ensure_ascii=False)
+    fields = {
+        'name': payload.get('name'),
+        'max_systems': int(payload.get('max_systems') or 1),
+        'max_tables_per_system': int(payload.get('max_tables_per_system') or 3),
+        'max_records_per_table': int(payload.get('max_records_per_table') or 50000),
+        'max_fields_per_table': int(payload.get('max_fields_per_table') or 200),
+        'max_storage_mb': int(payload.get('max_storage_mb') or 1024),
+        'price': payload.get('price') or 0,
+        'is_active': bool(payload.get('is_active', True)),
+        'has_ai_assistant': bool(payload.get('has_ai_assistant', True)),
+        'features_json': features_json,
+    }
+    if pid:
+        plan = get_object_or_404(Plan, id=pid)
+        for k, v in fields.items():
+            setattr(plan, k, v)
+        plan.save()
+    else:
+        plan = Plan.objects.create(**fields)
+    return Response({'ok': True, 'id': plan.id})
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def admin_plan_detail_view(request, pk):
+    user, err = require_admin(request)
+    if err: return err
+    plan = get_object_or_404(Plan, id=pk)
+    if request.method == 'GET':
+        promo = {}
+        try:
+            promo = json.loads(plan.features_json or '{}') if (plan.features_json or '').strip().startswith('{') else {'features': json.loads(plan.features_json or '[]')}
+        except Exception:
+            promo = {'raw': plan.features_json or ''}
+        return Response({
+            'id': plan.id,
+            'name': plan.name,
+            'max_systems': plan.max_systems,
+            'max_tables_per_system': plan.max_tables_per_system,
+            'max_records_per_table': plan.max_records_per_table,
+            'max_fields_per_table': plan.max_fields_per_table,
+            'max_storage_mb': plan.max_storage_mb,
+            'price': float(plan.price),
+            'is_active': plan.is_active,
+            'has_ai_assistant': plan.has_ai_assistant,
+            'promo': promo,
+        })
+    if request.method == 'DELETE':
+        plan.delete()
+        return Response({'ok': True})
+    promo = request.data.get('promo')
+    for field in ['name','max_systems','max_tables_per_system','max_records_per_table','max_fields_per_table','max_storage_mb','price','is_active','has_ai_assistant']:
+        if field in request.data:
+            setattr(plan, field, request.data.get(field))
+    if promo is not None:
+        plan.features_json = json.dumps(promo, ensure_ascii=False)
+    plan.save()
+    return Response({'ok': True})
+
+
+@api_view(['GET', 'POST'])
+def admin_discounts_view(request):
+    user, err = require_admin(request)
+    if err: return err
+    if request.method == 'POST':
+        payload = request.data
+        did = payload.get('id')
+        code = (payload.get('code') or '').strip().upper()
+        percentage = payload.get('percentage') or 0
+        if not code:
+            return Response({'error': 'C?digo requerido'}, status=400)
+        if did:
+            disc = get_object_or_404(Discount, id=did)
+            disc.code = code
+            disc.percentage = percentage
+            disc.is_active = bool(payload.get('is_active', True))
+            disc.save()
+        else:
+            disc = Discount.objects.create(code=code, percentage=percentage, is_active=bool(payload.get('is_active', True)))
+        return Response({'ok': True, 'id': disc.id})
+    discounts = Discount.objects.all().order_by('-created_at')
+    return Response([{'id': d.id, 'code': d.code, 'percentage': float(d.percentage), 'is_active': d.is_active} for d in discounts])
+
+
+@api_view(['PUT', 'DELETE'])
+def admin_discount_detail_view(request, pk):
+    user, err = require_admin(request)
+    if err: return err
+    discount = get_object_or_404(Discount, id=pk)
+    if request.method == 'DELETE':
+        discount.delete()
+        return Response({'ok': True})
+    discount.code = (request.data.get('code') or discount.code).strip().upper()
+    discount.percentage = request.data.get('percentage', discount.percentage)
+    discount.is_active = request.data.get('is_active', discount.is_active)
+    discount.save()
+    return Response({'ok': True})

@@ -1,5 +1,6 @@
 checkAuth();
 
+const systemIdParam = new URLSearchParams(window.location.search).get('system_id') || null;
 let searchTimeout = null;
 
 async function init() {
@@ -12,20 +13,15 @@ async function loadSystems() {
         if (res.ok) {
             const systems = await res.json();
             const select = document.getElementById('auditSystemSelect');
-            select.innerHTML = '<option value="-1">Todos los sistemas</option>'; // Default "Todos"
+            select.innerHTML = '<option value="-1">Todos los sistemas</option>';
             systems.forEach(sys => {
                 select.innerHTML += `<option value="${sys.id}">${sys.name}</option>`;
             });
-
-            // Check URL param
-            const urlParams = new URLSearchParams(window.location.search);
-            const systemIdParam = urlParams.get('systemId');
 
             if (systemIdParam) {
                 select.value = systemIdParam;
             }
 
-            // Allow default selection (which is -1) to trigger load
             onSystemSelectChange();
         }
     } catch (e) {
@@ -53,7 +49,7 @@ async function loadSystemUsers() {
 
     userSelect.innerHTML = '<option value="">Todos</option>';
 
-    if (!systemId || systemId === '-1') return; // Cannot load users for "all systems" easily yet, or we could implement a global users endpoint
+    if (!systemId || systemId === '-1') return;
 
     try {
         const res = await apiFetch(`/auditoria/sistema/${systemId}/usuarios`);
@@ -78,7 +74,6 @@ async function loadAuditLogs() {
 
     const container = document.getElementById('logsContainer');
 
-    // Remove "select system" check since we default to "All" (value -1)
     if (!systemId) {
         // Technically shouldn't happen if we default to -1, but if empty option is selected
         container.innerHTML = `
@@ -105,14 +100,12 @@ async function loadAuditLogs() {
 
         let endpoint = '';
         if (systemId === '-1') {
-            // Global
             if (type === 'security') {
                 endpoint = `/auditoria/seguridad/filtrar?${queryParams.toString()}`;
             } else {
                 endpoint = `/auditoria/logs/filtrar?${queryParams.toString()}`;
             }
         } else {
-            // Specific System
             if (type === 'security') {
                 endpoint = `/auditoria/sistema/${systemId}/seguridad/filtrar?${queryParams.toString()}`;
             } else {
@@ -234,6 +227,36 @@ function getSeverityBadge(severity) {
         case 'low': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
         default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400';
     }
+}
+
+async function downloadAuditLog() {
+    const systemId = document.getElementById('auditSystemSelect').value;
+    const type = document.getElementById('auditTypeSelect').value;
+    const container = document.getElementById('logsContainer');
+    const logs = container.querySelectorAll('.p-4');
+    
+    if (logs.length === 0) {
+        showError("No hay registros para exportar");
+        return;
+    }
+
+    let csv = "Fecha,Usuario,Accion_Evento,Detalles,IP/Severidad\n";
+    logs.forEach(row => {
+        const date = row.querySelector('.text-gray-400')?.innerText || '';
+        const user = row.querySelector('.flex.items-center.gap-1')?.innerText.trim() || '';
+        const action = row.querySelector('h4')?.innerText || '';
+        const details = row.querySelector('p')?.innerText.replace(/"/g, '""') || '';
+        const extra = row.querySelector('.ml-2 .material-symbols-outlined')?.parentElement?.innerText.trim() || '';
+        csv += `"${date}","${user}","${action}","${details}","${extra}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Auditoria_Datium_${type}_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    showSuccess("Auditoría exportada exitosamente");
 }
 
 init();

@@ -7,7 +7,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Datium</title>
     <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -89,7 +89,7 @@
                 <nav class="px-4 flex flex-col gap-2">
                     <a href="dashboard.html"
                         class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-xl text-sm font-bold shadow-sm shadow-primary/10">
-                        <span class="material-symbols-outlined">dns</span>
+                        <span class="material-symbols-outlined">dashboard</span>
                         Dashboard
                     </a>
 
@@ -110,11 +110,6 @@
                         Auditoría
                     </a>
 
-                    <a href="chat.html"
-                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl text-sm font-medium transition-colors border-t border-gray-100 dark:border-gray-800 mt-2 pt-4">
-                        <span class="material-symbols-outlined">forum</span>
-                        Asistente IA
-                    </a>
                 </nav>
             </div>
 
@@ -148,6 +143,7 @@
 
         <main
             class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-8 w-full">
+
 
             <!-- Mobile Header -->
             <div class="flex items-center justify-between mb-6 md:hidden">
@@ -498,6 +494,35 @@
             </div>
         </main>
     </div>
+
+    <!-- Terms & Conditions Modal -->
+    <div id="termsModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#151f2b] rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col max-h-[90vh]">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                    <span class="material-symbols-outlined text-2xl">gavel</span>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-black text-[#111418] dark:text-white italic">Actualización de Términos</h3>
+                    <p class="text-xs text-gray-500 font-medium">Es necesario aceptar los nuevos términos para continuar usando Datium.</p>
+                </div>
+            </div>
+            
+            <div id="termsContentScroll" class="flex-1 overflow-y-auto pr-4 mb-8 custom-scrollbar text-sm text-gray-600 dark:text-gray-300 leading-relaxed prose dark:prose-invert max-w-none">
+                <!-- Content injected here -->
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button onclick="logout()" class="flex-1 py-4 rounded-2xl border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-sm uppercase tracking-wider">
+                    Rechazar y Salir
+                </button>
+                <button onclick="acceptTerms()" class="flex-1 py-4 rounded-2xl bg-primary text-white font-black shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all hover:scale-[1.02] active:scale-95 text-sm uppercase tracking-wider">
+                    Aceptar y Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="{% static 'js/auth.js' %}"></script>

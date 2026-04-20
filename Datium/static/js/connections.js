@@ -38,7 +38,6 @@ function setupEventListeners() {
         domSysSelect.addEventListener('change', async (e) => {
             currentSystemId = e.target.value;
             if (currentSystemId) {
-                if (domCreateBtn) domCreateBtn.href = `table_form.html?systemId=${currentSystemId}`;
                 await fetchTables(currentSystemId);
                 renderDiagram();
             } else {
@@ -115,13 +114,13 @@ async function downloadDictionary() {
     }
     
     try {
-        let csv = "Tabla,Campo,Tipo,Requerido,Relacionado\n";
+        let csv = "Tabla,Campo,Tipo,Requerido,Unico,Relacionado\n";
         for (const table of currentTables) {
             const fRes = await apiFetch(`/tables/${table.id}/fields`);
             const fields = fRes.ok ? await fRes.json() : [];
             fields.forEach(f => {
                 const rel = f.relatedTableId ? `Tabla_${f.relatedTableId}` : "-";
-                csv += `"${table.name}","${f.name}","${f.type}","${f.required ? 'Sí' : 'No'}","${rel}"\n`;
+                csv += `"${table.name}","${f.name}","${f.type}","${f.required ? 'Sí' : 'No'}","${f.is_unique ? 'Sí' : 'No'}","${rel}"\n`;
             });
         }
         
@@ -130,15 +129,35 @@ async function downloadDictionary() {
         const link = document.createElement("a");
         link.setAttribute("href", url);
         link.setAttribute("download", `Diccionario_Datium_S${currentSystemId}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-        showSuccess("Diccionario descargado");
+        showSuccess("Diccionario técnico descargado");
     } catch (e) {
         console.error(e);
         showError("Error al generar diccionario");
     }
+}
+
+async function downloadAllDiagrams() {
+    if (!currentSystemId) { showError("Selecciona un sistema primero"); return; }
+    const types = ['er', 'flow', 'class'];
+    showLoading('Generando diagramas...');
+    for (const t of types) {
+        currentDiagramType = t;
+        await renderDiagram();
+        const wrapper = document.getElementById('diagramContainerWrapper');
+        const svg = wrapper.querySelector('svg');
+        if (svg) {
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Datium_${t}_S${currentSystemId}.svg`;
+            link.click();
+        }
+    }
+    hideLoading();
+    showSuccess("Todos los diagramas descargados");
 }
 
 function clearDiagram() {
@@ -307,7 +326,7 @@ async function renderDataDictionary() {
                             <tr class="border-b-2 border-gray-100 dark:border-gray-800/30">
                                 <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Identificador</th>
                                 <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Data Type</th>
-                                <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Properties</th>
+                                <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Constraints</th>
                                 <th class="pb-6 px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">References</th>
                             </tr>
                         </thead>
@@ -344,7 +363,10 @@ async function renderDataDictionary() {
                     </td>
                     <td class="py-6 px-4">
                         <div class="flex flex-wrap gap-2">
-                            ${attrs.join('') || '<span class="text-gray-300 dark:text-gray-700 font-black">NULLABLE</span>'}
+                            ${isPK ? '<span class="bg-amber-400/10 text-amber-500 border border-amber-400/20 px-2 py-0.5 rounded text-[8px] font-black tracking-tighter">PRIMARY KEY</span>' : ''}
+                            ${f.required ? '<span class="bg-red-400/10 text-red-500 border border-red-400/20 px-2 py-0.5 rounded text-[8px] font-black tracking-tighter">NOT NULL</span>' : ''}
+                            ${f.is_unique ? '<span class="bg-blue-400/10 text-blue-500 border border-blue-400/20 px-2 py-0.5 rounded text-[8px] font-black tracking-tighter">UNIQUE</span>' : ''}
+                            ${(!isPK && !f.required && !f.is_unique) ? '<span class="text-gray-300 dark:text-gray-700 font-black text-[8px] uppercase tracking-widest">NULLABLE</span>' : ''}
                         </div>
                     </td>
                     <td class="py-6 px-4">

@@ -17,6 +17,10 @@ class Plan(models.Model):
     max_records_per_table = models.IntegerField(default=50000)
     max_fields_per_table = models.IntegerField(default=200)
     max_storage_mb = models.IntegerField(default=1024)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    features_json = models.TextField(default='[]')
+    is_active = models.BooleanField(default=True)
+    has_ai_assistant = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -34,8 +38,11 @@ class User(models.Model):
     avatar_url = models.TextField(null=True, blank=True)
     role = models.CharField(max_length=20, default='user')
     plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True)
+    phone = models.CharField(max_length=20, null=True, blank=True)
     storage_used_bytes = models.BigIntegerField(default=0)
     is_suspended = models.BooleanField(default=False)
+    terms_version_accepted = models.IntegerField(default=0)
+    session_timeout_minutes = models.IntegerField(default=0) # 0 means disabled
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -54,6 +61,7 @@ class System(models.Model):
     image_url = models.TextField(null=True, blank=True)
     security_mode = models.CharField(max_length=20, default='none')
     general_password = models.TextField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -85,6 +93,8 @@ class SystemTable(models.Model):
     system = models.ForeignKey(System, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
+    custom_style_json = models.TextField(default='{}') # Table Personalization (Beta)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -108,12 +118,18 @@ class SystemField(models.Model):
         ('boolean', 'Boolean'),
         ('select', 'Select'),
         ('relation', 'Relation'),
+        ('email', 'Email'),
+        ('url', 'URL'),
+        ('phone', 'Phone'),
+        ('time', 'Time'),
+        ('file', 'File'),
     ]
 
     table = models.ForeignKey(SystemTable, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=20, choices=FIELD_TYPES)
     required = models.BooleanField(default=False)
+    is_unique = models.BooleanField(default=False)
     order_index = models.IntegerField(default=0)
     related_table = models.ForeignKey(SystemTable, on_delete=models.SET_NULL, null=True, blank=True, related_name='related_fields')
     related_display_field = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='display_for_fields')
@@ -140,7 +156,9 @@ class SystemRecord(models.Model):
     id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
     table = models.ForeignKey(SystemTable, on_delete=models.CASCADE)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    is_deleted = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
+    order_index = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -269,3 +287,47 @@ class BlockedIP(models.Model):
 
     def __str__(self):
         return self.ip_address
+
+# =========================================
+# PAYMENTS & SUBSCRIPTIONS
+# =========================================
+
+class Discount(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
+    code = models.CharField(max_length=50, unique=True)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2) 
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.code
+
+class Payment(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, default='completed')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Pay {self.amount} - {self.user.email}"
+
+# =========================================
+# ADVANCED PERMISSIONS
+# =========================================
+
+class SystemCollaboratorTable(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_random_id, editable=False)
+    collaborator = models.ForeignKey(SystemCollaborator, on_delete=models.CASCADE, related_name='table_permissions')
+    table = models.ForeignKey(SystemTable, on_delete=models.CASCADE)
+    can_read = models.BooleanField(default=True)
+    can_create = models.BooleanField(default=False)
+    can_update = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('collaborator', 'table')
+
+    def __str__(self):
+        return f"{self.collaborator.user.email} -> {self.table.name}"

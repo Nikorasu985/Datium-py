@@ -29,6 +29,20 @@ async function init() {
 
     loadSidebarInfo();
     setupLivePreview();
+    initSortable();
+}
+
+function initSortable() {
+    const container = document.getElementById('newFieldsContainer');
+    if (!container) return;
+    Sortable.create(container, {
+        animation: 150,
+        handle: '.drag-handle',
+        ghostClass: 'sortable-ghost',
+        onEnd: () => {
+            updatePreview();
+        }
+    });
 }
 
 function setupLivePreview() {
@@ -65,6 +79,11 @@ function updatePreview() {
         if (f.type === 'boolean') icon = 'check_box';
         if (f.type === 'select') icon = 'list';
         if (f.type === 'relation') icon = 'link';
+        if (f.type === 'email') icon = 'alternate_email';
+        if (f.type === 'url') icon = 'language';
+        if (f.type === 'phone') icon = 'phone';
+        if (f.type === 'time') icon = 'schedule';
+        if (f.type === 'file') icon = 'upload_file';
 
         thHtml += `
             <th class="px-6 py-3 font-medium text-gray-600 dark:text-gray-300 group min-w-[150px]">
@@ -87,10 +106,15 @@ function updatePreview() {
         fields.forEach(f => {
             let mockVal = 'Datos...';
             if (f.type === 'number') mockVal = i * 142;
-            if (f.type === 'date') mockVal = `1${i}/03/2026`;
+            if (f.type === 'date') mockVal = `2026-03-1${i}`;
             if (f.type === 'boolean') mockVal = i === 1 ? 'Sí' : 'No';
             if (f.type === 'select') mockVal = 'Opción A';
             if (f.type === 'relation') mockVal = 'Rel_#0' + i;
+            if (f.type === 'email') mockVal = 'correo@ejemplo.com';
+            if (f.type === 'url') mockVal = 'https://datium.com';
+            if (f.type === 'phone') mockVal = '+57 300 000 0000';
+            if (f.type === 'time') mockVal = '10:00 AM';
+            if (f.type === 'file') mockVal = 'archivo.pdf';
 
             trHtml += `<td class="px-6 py-3.5 text-sm text-gray-600 dark:text-gray-400 opacity-60">${mockVal}</td>`;
         });
@@ -142,9 +166,12 @@ async function loadTableData() {
 function addNewFieldRow(fieldData = null) {
     const container = document.getElementById('newFieldsContainer');
     const div = document.createElement('div');
-    div.className = 'bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 items-end animate-fade-in';
+    div.className = 'bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 items-end animate-fade-in group relative';
 
     div.innerHTML = `
+        <div class="drag-handle absolute -left-2 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-primary cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-all">
+            <span class="material-symbols-outlined text-lg">drag_indicator</span>
+        </div>
         <div class="flex-1 min-w-[150px]">
             <input type="text" class="new-field-name w-full px-3 py-2 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-black/20 text-sm focus:ring-2 focus:ring-primary/50 dark:text-white" placeholder="Nombre Campo" required>
         </div>
@@ -156,6 +183,11 @@ function addNewFieldRow(fieldData = null) {
                 <option value="boolean">Si/No</option>
                 <option value="select">Lista (Select)</option>
                 <option value="relation">Relación</option>
+                <option value="email">Email</option>
+                <option value="url">URL</option>
+                <option value="phone">Teléfono</option>
+                <option value="time">Hora</option>
+                <option value="file">Archivo</option>
             </select>
         </div>
         
@@ -175,10 +207,13 @@ function addNewFieldRow(fieldData = null) {
         </div>
 
         <div class="flex items-center gap-2 h-10">
-            <label class="flex items-center cursor-pointer">
+            <label class="flex items-center cursor-pointer" title="Campo Obligatorio">
                 <input type="checkbox" class="new-field-required form-checkbox rounded text-primary border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 w-4 h-4">
                 <span class="ml-2 text-xs text-gray-500 font-medium">Req.</span>
             </label>
+            <label class="flex items-center cursor-pointer" title="Valor Único">
+                <input type="checkbox" class="new-field-unique form-checkbox rounded text-blue-500 border-gray-300 dark:border-gray-600 bg-transparent focus:ring-0 w-4 h-4">
+                <span class="ml-2 text-xs text-gray-500 font-medium">Uniq</span>
             </label>
             <button type="button" onclick="const row = this.closest('.bg-gray-50'); row.style.opacity = '0'; setTimeout(() => row.remove(), 300);" class="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Eliminar campo">
                 <span class="material-symbols-outlined text-lg">delete</span>
@@ -304,7 +339,8 @@ async function saveTable() {
             name: nameInput.value,
             type: type,
             required: row.querySelector('.new-field-required').checked,
-            orderIndex: 0,
+            unique: row.querySelector('.new-field-unique').checked || false,
+            orderIndex: Array.from(fieldRows).indexOf(row),
             options: options,
             relatedTableId: relatedTableId,
             relatedDisplayFieldId: relatedDisplayFieldId

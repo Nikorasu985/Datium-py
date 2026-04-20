@@ -5,22 +5,14 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Datium - Admin Panel</title>
+    <title>Datium - Administración</title>
     <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    <script>
-        const theme = localStorage.getItem('theme');
-        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -38,104 +30,335 @@
             },
         }
     </script>
+    <script>
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
 </head>
 
 <body class="font-display bg-background-light dark:bg-background-dark text-[#111418] dark:text-gray-200 overflow-hidden">
+
+    <div id="loadingOverlay"
+        class="fixed inset-0 bg-background-light/80 dark:bg-background-dark/90 backdrop-blur-md z-[100] hidden flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="relative">
+            <div class="h-24 w-24 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
+            <div class="absolute top-0 left-0 h-24 w-24 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+            <img src="{% static 'img/Isotipo modo oscuro.jpeg' %}" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 rounded-full hidden dark:block animate-pulse">
+        </div>
+        <h2 class="mt-8 text-2xl font-bold text-[#111418] dark:text-white animate-pulse">Sincronizando Nexus...</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Accediendo al motor central de Datium</p>
+    </div>
+
     <div class="flex h-screen w-full">
-        <!-- Sidebar general -->
+
+        <!-- Sidebar (Mirror Dashboard) -->
         <aside class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between flex-shrink-0 h-full">
             <div>
-                <div class="p-4 flex justify-center items-center h-60">
-                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-full w-auto object-contain block dark:hidden p-2" alt="Datium">
-                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-full w-auto object-contain hidden dark:block p-2" alt="Datium">
+                <div class="p-4 flex justify-center items-center h-48">
+                    <img src="{% static 'img/Datium logo modo oscuro.jpeg' %}" class="h-full w-auto object-contain hidden dark:block hover:scale-105 transition-transform duration-300 p-2" alt="Datium">
+                    <img src="{% static 'img/Datium logo modo claro.jpeg' %}" class="h-full w-auto object-contain block dark:hidden hover:scale-105 transition-transform duration-300 p-2" alt="Datium">
                 </div>
-                <div class="px-6 mb-6">
-                    <button onclick="toggleTema()" class="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-600 dark:text-gray-400">
+
+                <div class="px-6 mb-4">
+                    <div class="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-4 opacity-70">Sistema Admin</div>
+                    <button onclick="toggleTema()" class="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-bold text-gray-600 dark:text-gray-400">
                         <span class="material-symbols-outlined text-xl">dark_mode</span>
-                        <span>Modo Oscuro</span>
+                        <span>Contraste</span>
                     </button>
                 </div>
-                <nav class="px-4 flex flex-col gap-2">
-                    <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
-                        <span class="material-symbols-outlined">exit_to_app</span> Regresar a App
-                    </a>
-                    <a href="#" onclick="switchTab('reports')" class="tab-link active-tab flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded-xl text-sm font-bold transition-colors">
-                        <span class="material-symbols-outlined">bug_report</span> Gestión de Reportes
-                    </a>
-                    <a href="#" onclick="switchTab('plans')" class="tab-link flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
-                        <span class="material-symbols-outlined">workspace_premium</span> Administración Planes
-                    </a>
-                    <a href="#" onclick="switchTab('policies')" class="tab-link flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
-                        <span class="material-symbols-outlined">policy</span> Términos y Condiciones
+
+                <nav class="px-4 flex flex-col gap-1">
+                    <button onclick="switchModule('dashboard')" id="nav-dashboard" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        Resumen Global
+                    </button>
+
+                    <button onclick="switchModule('reports')" id="nav-reports" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                        <span class="material-symbols-outlined">report</span>
+                        Reportes
+                    </button>
+
+                    <button onclick="switchModule('plans')" id="nav-plans" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                        <span class="material-symbols-outlined">payments</span>
+                        Planes & Precios
+                    </button>
+
+                    <button onclick="switchModule('users')" id="nav-users" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                        <span class="material-symbols-outlined">group</span>
+                        Usuarios
+                    </button>
+
+                    <button onclick="switchModule('legal')" id="nav-legal" class="nav-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                        <span class="material-symbols-outlined">gavel</span>
+                        Legal & TyC
+                    </button>
+                    
+                    <div class="h-px bg-gray-100 dark:bg-gray-800 my-4 mx-4"></div>
+                    
+                    <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-primary rounded-xl text-sm font-bold transition-all">
+                        <span class="material-symbols-outlined">home</span>
+                        Volver al Inicio
                     </a>
                 </nav>
             </div>
-            <div class="p-4 border-t border-gray-200 dark:border-gray-800">
+
+            <div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white/30 dark:bg-gray-900/30 backdrop-blur-md">
+                <a href="profile.html" class="flex items-center gap-3 mb-4 px-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors p-2 cursor-pointer group">
+                    <div id="userAvatarContainer" class="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-gray-800 overflow-hidden group-hover:ring-primary transition-all">
+                        <span id="userInitial">A</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="userName" class="text-sm font-bold truncate text-[#111418] dark:text-white group-hover:text-primary transition-colors italic">Administrador</p>
+                        <p id="userEmail" class="text-[10px] text-gray-500 truncate font-black uppercase tracking-widest">Master Node</p>
+                    </div>
+                </a>
+
                 <button onclick="logout()" class="flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl text-sm font-bold transition-all shadow-sm">
-                    <span class="material-symbols-outlined">logout</span> Cerrar Sesión
+                    <span class="material-symbols-outlined text-lg">logout</span>
+                    Cerrar Sesión
                 </button>
             </div>
         </aside>
 
-        <main class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark p-4 md:p-8 relative">
-            <div class="max-w-7xl mx-auto space-y-6">
-                <!-- CABECERA -->
-                <div class="bg-gradient-to-r from-red-600 to-red-900 p-8 rounded-3xl shadow-2xl flex items-center justify-between text-white relative overflow-hidden">
-                    <div class="absolute -right-20 -top-20 text-white/10 rotate-12">
-                        <span class="material-symbols-outlined" style="font-size: 300px;">admin_panel_settings</span>
+        <!-- Main Content (Mirror Dashboard) -->
+        <main class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-8 w-full">
+            
+            <!-- Welcome Header -->
+            <div class="max-w-7xl mx-auto mb-10">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 id="currentModuleTitle" class="text-3xl md:text-4xl font-black text-[#111418] dark:text-white tracking-tighter italic uppercase">Panel de Control</h1>
+                        <p id="currentModuleSubtitle" class="text-gray-500 dark:text-gray-400 font-medium mt-1">Gestión administrativa y monitorización de sistemas.</p>
                     </div>
-                    <div class="relative z-10 flex items-center gap-4">
-                        <div class="p-4 bg-white/10 backdrop-blur-md rounded-2xl">
-                            <span class="material-symbols-outlined text-4xl">admin_panel_settings</span>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2 bg-emerald-500/10 px-4 py-2 rounded-2xl border border-emerald-500/20">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Nexus Online</span>
                         </div>
-                        <div>
-                            <h1 class="text-3xl font-black tracking-tight">Panel Principal de Administración</h1>
-                            <p class="text-white/80 font-medium">Control total sobre infraestructura, clientes y métricas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto space-y-10 relative z-10 w-full mb-20">
+                
+                <!-- Dashboard Module -->
+                <div id="module-dashboard" class="module-content space-y-8">
+                    <!-- Stats Grid (Mirror Dashboard Style) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white dark:bg-[#1c2632] p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                            <div class="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all"></div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                    <span class="material-symbols-outlined text-2xl">group</span>
+                                </div>
+                            </div>
+                            <div id="stat-total-users" class="text-3xl font-black text-[#111418] dark:text-white mb-1">...</div>
+                            <div class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Usuarios Totales</div>
+                        </div>
+                        
+                        <div class="bg-white dark:bg-[#1c2632] p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                            <div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all"></div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                                    <span class="material-symbols-outlined text-2xl">database</span>
+                                </div>
+                            </div>
+                            <div id="stat-total-systems" class="text-3xl font-black text-[#111418] dark:text-white mb-1">...</div>
+                            <div class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Sistemas Activos</div>
+                        </div>
+
+                        <div class="bg-white dark:bg-[#1c2632] p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                            <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all"></div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                    <span class="material-symbols-outlined text-2xl">report</span>
+                                </div>
+                                <span class="bg-amber-500/20 text-amber-600 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest">Pendientes</span>
+                            </div>
+                            <div id="stat-pending-reports" class="text-3xl font-black text-[#111418] dark:text-white mb-1">...</div>
+                            <div class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Alertas de Soporte</div>
+                        </div>
+
+                        <div class="bg-white dark:bg-[#1c2632] p-6 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                            <div class="absolute -right-4 -top-4 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-all"></div>
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+                                    <span class="material-symbols-outlined text-2xl">delete</span>
+                                </div>
+                                <span class="bg-rose-500/20 text-rose-600 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest">Trash</span>
+                            </div>
+                            <div id="stat-trash-count" class="text-3xl font-black text-[#111418] dark:text-white mb-1">...</div>
+                            <div class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Sistemas en Papelera</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2 bg-white/50 dark:bg-[#1c2632]/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm">
+                            <div class="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                                <h3 class="text-lg font-black uppercase tracking-tight italic">Actividad Crítica</h3>
+                                <button onclick="switchModule('reports')" class="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:underline">Gestionar Todos</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <tbody id="dashboardReportsPreview" class="divide-y divide-gray-100 dark:divide-gray-800">
+                                        <!-- Reports Preview -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-gray-900 to-black p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group">
+                            <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/30 transition-all"></div>
+                            <div class="relative z-10 flex flex-col h-full">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"><span class="material-symbols-outlined text-primary">security</span></div>
+                                    <h3 class="font-black text-lg italic uppercase">Datium Kernel</h3>
+                                </div>
+                                <p class="text-sm text-gray-400 mb-8 font-medium leading-relaxed italic">Monitor de integridad y auditoría del núcleo central de la plataforma.</p>
+                                <div class="space-y-4 flex-1">
+                                    <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                                        <span class="text-xs font-bold text-gray-300">API Status</span>
+                                        <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Online</span>
+                                    </div>
+                                    <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                                        <span class="text-xs font-bold text-gray-300">Auth Engine</span>
+                                        <span class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Secure</span>
+                                    </div>
+                                </div>
+                                <div class="relative group mt-8">
+                                    <button class="w-full py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                        <span class="material-symbols-outlined text-sm">download</span>
+                                        Exportar Logs
+                                    </button>
+                                    <div class="absolute bottom-full left-0 w-full mb-2 bg-[#1c2632] border border-white/10 rounded-2xl shadow-2xl overflow-hidden opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
+                                        <button onclick="exportAudit('csv')" class="w-full px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5">CSV Format</button>
+                                        <button onclick="exportAudit('xlsx')" class="w-full px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5">Excel Sheet</button>
+                                        <button onclick="exportAudit('pdf')" class="w-full px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors">PDF Document</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- TABS CONTENT -->
-                
-                <!-- REPORTES -->
-                <div id="tab-reports" class="tab-content block space-y-6">
-                    <h2 class="text-2xl font-black text-gray-900 dark:text-white">Reportes de Usuarios</h2>
-                    <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                <!-- Reports Module -->
+                <div id="module-reports" class="module-content hidden space-y-6">
+                    <div class="bg-white/50 dark:bg-[#1c2632]/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden">
+                        <div class="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white/20 dark:bg-black/10">
+                            <h3 class="text-sm font-black uppercase tracking-widest italic">Inteligencia de Reportes</h3>
+                            <div class="relative group">
+                                <button class="px-6 py-3 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">download</span>
+                                    Exportar
+                                </button>
+                                <div class="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#1c2632] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden opacity-0 group-hover:opacity-100 -translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
+                                    <button onclick="exportReports('csv')" class="w-full px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b border-gray-100 dark:border-gray-800">CSV Standard</button>
+                                    <button onclick="exportReports('xlsx')" class="w-full px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b border-gray-100 dark:border-gray-800">Excel Data</button>
+                                    <button onclick="exportReports('pdf')" class="w-full px-6 py-3 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">PDF Report</button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left">
                                 <thead>
-                                    <tr class="text-xs font-black tracking-widest uppercase text-gray-400 dark:text-gray-500 border-b-2 border-gray-100 dark:border-gray-700">
-                                        <th class="p-4">Usuario</th>
-                                        <th class="p-4">Título</th>
-                                        <th class="p-4">Fecha</th>
-                                        <th class="p-4">Estado</th>
-                                        <th class="p-4 text-center">Acciones</th>
+                                    <tr class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 dark:border-gray-800">
+                                        <th class="px-8 py-6">Usuario</th>
+                                        <th class="px-8 py-6">Asunto</th>
+                                        <th class="px-8 py-6">Fecha</th>
+                                        <th class="px-8 py-6">Estado</th>
+                                        <th class="px-8 py-6 text-right">Acción</th>
                                     </tr>
                                 </thead>
-                                <tbody id="reportsTableBody" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
-                                    <tr><td colspan="5" class="p-6 text-center text-gray-500">Cargando reportes...</td></tr>
+                                <tbody id="fullReportsTableBody" class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    <!-- Full Reports -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- PLANES -->
-                <div id="tab-plans" class="tab-content hidden space-y-6">
-                    <h2 class="text-2xl font-black text-gray-900 dark:text-white">Editar Características de Planes</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="plansContainer">
-                        <div class="p-6 text-center text-gray-500 w-full animate-pulse col-span-3">Cargando planes...</div>
+                <!-- Plans Module -->
+                <div id="module-plans" class="module-content hidden space-y-10">
+                    <div id="plansModuleContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <!-- Plan Cards -->
+                    </div>
+                    
+                    <div class="pt-10 border-t border-gray-100 dark:border-gray-800">
+                        <div class="flex items-center justify-between mb-8">
+                            <h3 class="text-2xl font-black italic tracking-tighter uppercase">Promociones</h3>
+                            <button onclick="createDiscount()" class="text-primary font-black text-xs uppercase tracking-widest hover:underline">+ Nuevo Código</button>
+                        </div>
+                        <div id="discountsModuleContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <!-- Discount Cards -->
+                        </div>
                     </div>
                 </div>
 
-                <!-- POLÍTICAS -->
-                <div id="tab-policies" class="tab-content hidden space-y-6">
-                    <h2 class="text-2xl font-black text-gray-900 dark:text-white">Términos, Condiciones y Privacidad (HTML)</h2>
-                    <div class="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">
-                        <textarea id="policyContentEditor" rows="20" class="w-full px-4 py-3 rounded-xl border-2 border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white focus:border-red-500 focus:ring-0 transition-colors font-mono text-sm" placeholder="<h1>Términos y condiciones</h1><p>...</p>"></textarea>
-                        <button onclick="savePolicies()" class="px-8 py-4 w-full md:w-auto rounded-2xl bg-red-600 text-white font-black tracking-widest uppercase hover:-translate-y-1 shadow-lg shadow-red-600/20 transition-all">
-                            Guardar Cambios
-                        </button>
+                <!-- Users Module -->
+                <div id="module-users" class="module-content hidden space-y-6">
+                    <div class="bg-white/50 dark:bg-[#1c2632]/50 backdrop-blur-xl rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden">
+                        <div class="p-8 border-b border-gray-100 dark:border-gray-800">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div class="relative w-full max-w-md">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                                    <input type="text" id="userListSearch" placeholder="Filtro de identidad..." class="w-full pl-12 pr-6 py-3.5 rounded-2xl bg-white dark:bg-black/20 border border-gray-100 dark:border-gray-800 outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold text-sm">
+                                </div>
+                                <div class="relative group">
+                                    <button class="px-6 py-4 rounded-2xl bg-slate-900 border border-slate-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-base">download_for_offline</span>
+                                        Exportar Nexus
+                                    </button>
+                                    <div class="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#1c2632] border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden opacity-0 group-hover:opacity-100 -translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
+                                        <div class="px-6 py-3 bg-gray-50 dark:bg-black/20 text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800">Seleccione Formato</div>
+                                        <button onclick="exportUsers('csv')" class="w-full px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b border-gray-100 dark:border-gray-800">CSV Flat File</button>
+                                        <button onclick="exportUsers('xlsx')" class="w-full px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border-b border-gray-100 dark:border-gray-800">Excel Workbook</button>
+                                        <button onclick="exportUsers('pdf')" class="w-full px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-primary hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">PDF Document (Vector)</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 dark:border-gray-800">
+                                        <th class="px-8 py-6">Identidad</th>
+                                        <th class="px-8 py-6">Rol / Plan</th>
+                                        <th class="px-8 py-6">Origen</th>
+                                        <th class="px-8 py-6">Estado</th>
+                                        <th class="px-8 py-6 text-right">Protocolo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fullUsersTableBody" class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    <!-- User List -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legal Module -->
+                <div id="module-legal" class="module-content hidden">
+                    <div class="bg-white/50 dark:bg-[#1c2632]/50 backdrop-blur-xl rounded-[3rem] p-10 border border-gray-100 dark:border-gray-800 max-w-5xl mx-auto space-y-8">
+                        <div class="flex items-center gap-6">
+                            <div class="h-16 w-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                                <span class="material-symbols-outlined text-3xl">gavel</span>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-black italic tracking-tighter uppercase">Legal Core</h3>
+                                <p class="text-xs text-gray-400 font-black uppercase tracking-widest">v<span id="policyVersionLabel">1</span> • Nexus Legal Engine</p>
+                            </div>
+                        </div>
+                        <textarea id="policyEditor" class="w-full h-[500px] p-8 rounded-[2.5rem] bg-white dark:bg-black/30 border border-gray-100 dark:border-gray-800 outline-none focus:ring-4 focus:ring-primary/5 transition-all font-medium text-sm leading-relaxed text-[#111418] dark:text-gray-300"></textarea>
+                        <div class="flex justify-end gap-4">
+                            <button onclick="savePolicies()" class="px-12 py-5 rounded-2xl bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all">Sincronizar Políticas</button>
+                        </div>
                     </div>
                 </div>
 
@@ -143,19 +366,76 @@
         </main>
     </div>
 
-    <!-- Modal Visor de Capturas de Reportes -->
-    <div id="reportScreenshotModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] hidden flex-col items-center justify-center p-4">
-        <div class="bg-transparent w-full max-w-6xl max-h-full flex flex-col items-end">
-            <button onclick="closeReportImage()" class="mb-4 text-white hover:text-red-400 bg-black/50 rounded-full p-2 transition-colors">
-                <span class="material-symbols-outlined text-4xl">close</span>
-            </button>
-            <img id="reportScreenshotImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/20">
-            <p id="reportFullSummary" class="mt-4 p-4 bg-gray-900 text-white max-w-full rounded-xl"></p>
+    <!-- Modal Report Detail (Mirror Dashboard Styles) -->
+    <div id="reportDetailModal" class="fixed inset-0 bg-background-dark/80 backdrop-blur-2xl z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#1c2632] border border-gray-100 dark:border-gray-800 w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <h3 id="modalReportTitle" class="text-2xl font-black tracking-tight italic uppercase">Detallenexus</h3>
+                <button onclick="closeReportModal()" class="p-2 transition-colors hover:text-red-500"><span class="material-symbols-outlined text-3xl">close</span></button>
+            </div>
+            <div class="p-8 overflow-y-auto space-y-8 flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-6">
+                        <div class="p-8 rounded-[2rem] bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-white/5 space-y-3">
+                            <div class="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2">Descripción</div>
+                            <p id="modalReportSummary" class="text-sm font-medium leading-relaxed text-gray-700 dark:text-gray-300"></p>
+                        </div>
+                        <div class="flex flex-wrap gap-4">
+                            <div class="px-4 py-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-[10px] font-bold text-gray-400 uppercase">Nodo: <span id="modalReportUser" class="text-[#111418] dark:text-white ml-2"></span></div>
+                            <div class="px-4 py-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-[10px] font-bold text-gray-400 uppercase">Timestamp: <span id="modalReportDate" class="text-[#111418] dark:text-white ml-2"></span></div>
+                        </div>
+                    </div>
+                    <div id="modalReportScreenshotCont" class="rounded-[2.5rem] overflow-hidden border border-gray-100 dark:border-white/10 bg-black min-h-[300px] flex items-center justify-center">
+                        <img id="modalReportScreenshot" src="" class="w-full h-auto object-contain">
+                    </div>
+                </div>
+            </div>
+            <div class="p-8 bg-gray-50/50 dark:bg-black/40 border-t border-gray-100 dark:border-gray-800 flex gap-4">
+                <button id="modalReportBtn" class="flex-1 py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg"></button>
+                <button onclick="closeReportModal()" class="px-8 py-4 rounded-2xl bg-white dark:bg-white/10 text-[#111418] dark:text-white text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 dark:hover:bg-white/20 transition-all border border-gray-100 dark:border-white/5">Cerrar Nodo</button>
+            </div>
         </div>
     </div>
 
+    <!-- Redirection Logic (Security) -->
     <script src="{% static 'js/auth.js' %}"></script>
     <script src="{% static 'js/app.js' %}"></script>
     <script src="{% static 'js/admin.js' %}"></script>
+    
+    <script>
+        const moduleDetails = {
+            dashboard: { title: 'Nexus Resumen', subtitle: 'Global System Dashboard. Monitorización de núcleos, usuarios y sistemas en tiempo real.' },
+            reports: { title: 'Critical Intelligence', subtitle: 'Centro de reportes de errores y bugs. Analiza el feedback técnico de la comunidad.' },
+            plans: { title: 'Market Engine', subtitle: 'Gestión de monetización, cuotas de sistemas, límites de almacenamiento y pricing dinámico.' },
+            users: { title: 'Nexus Global', subtitle: 'Control total de la base de usuarios. Gestión de roles, accesos, suspensiones y logs de actividad.' },
+            legal: { title: 'Legal Core', subtitle: 'Redacción y gestión de términos de uso. Cada cambio requiere re-aceptación de todos los usuarios.' }
+        };
+
+        function switchModule(modId) {
+            document.querySelectorAll('.module-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.classList.remove('bg-primary/10', 'text-primary');
+                el.classList.add('text-gray-600', 'dark:text-gray-400', 'hover:bg-gray-100', 'dark:hover:bg-gray-800');
+            });
+            
+            const target = document.getElementById(`module-${modId}`);
+            if (target) target.classList.remove('hidden');
+            
+            const btn = document.getElementById(`nav-${modId}`);
+            if (btn) {
+                btn.classList.add('bg-primary/10', 'text-primary');
+                btn.classList.remove('text-gray-600', 'dark:text-gray-400', 'hover:bg-gray-100', 'dark:hover:bg-gray-800');
+            }
+            
+            document.getElementById('currentModuleTitle').innerText = moduleDetails[modId].title;
+            document.getElementById('currentModuleSubtitle').innerText = moduleDetails[modId].subtitle;
+            localStorage.setItem('admin_module', modId);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const lastMod = localStorage.getItem('admin_module') || 'dashboard';
+            switchModule(lastMod);
+        });
+    </script>
 </body>
 </html>

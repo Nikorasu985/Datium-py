@@ -7,7 +7,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Datium - Conexiones</title>
     <link rel="icon" type="image/jpeg" href="{% static 'img/Isotipo modo oscuro.jpeg' %}" id="favicon">
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -74,7 +74,7 @@
                 <nav class="px-4 flex flex-col gap-2">
                     <a href="dashboard.html"
                         class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
-                        <span class="material-symbols-outlined">dns</span>
+                        <span class="material-symbols-outlined">dashboard</span>
                         Dashboard
                     </a>
 
@@ -83,9 +83,52 @@
                         <span class="material-symbols-outlined">cable</span>
                         Conexiones
                     </a>
+                    
+                    <a href="stats.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">bar_chart</span>
+                        Estadísticas
+                    </a>
+
+                    <a href="audit.html"
+                        class="flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl text-sm font-medium transition-colors">
+                        <span class="material-symbols-outlined">history</span>
+                        Auditoría
+                    </a>
+
+                </nav>
+            </div>
+
+            <div
+                class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white/30 dark:bg-gray-900/30 backdrop-blur-md">
+
+                <a href="profile.html"
+                    class="flex items-center gap-3 mb-4 px-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors p-2 cursor-pointer group">
+                    <div id="userAvatarContainer"
+                        class="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white dark:ring-gray-800 overflow-hidden group-hover:ring-primary transition-all">
+                        <span id="userInitial">U</span>
+                        <img id="userAvatar" src="" class="h-full w-full object-cover hidden" alt="Avatar">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p id="userName"
+                            class="text-sm font-bold truncate text-[#111418] dark:text-white group-hover:text-primary transition-colors">
+                            Cargando...
+                        </p>
+                        <p id="userEmail" class="text-xs text-gray-500 truncate">...</p>
+                    </div>
+                </a>
+
+                <button onclick="logout()"
+                    class="flex items-center gap-2 w-full justify-center px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl text-sm font-bold transition-all shadow-sm">
+                    <span class="material-symbols-outlined text-lg">logout</span>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </aside>
 
         <main
             class="flex-1 h-full overflow-y-auto overflow-x-hidden bg-background-light dark:bg-background-dark relative scroll-smooth p-4 md:p-8 w-full">
+
 
             <!-- Mobile Header -->
             <div class="flex items-center justify-between mb-6 md:hidden">
@@ -154,19 +197,19 @@
                             </button>
                         </div>
 
-                        <a href="table_form.html"
-                            class="px-4 py-2.5 bg-gradient-to-r from-primary to-blue-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[18px]">add_box</span>
-                            Crear Tabla
-                        </a>
 
                         <div class="relative group">
                             <button onclick="downloadDictionary()" 
-                                class="px-4 py-2.5 bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all flex items-center gap-2">
-                                <span class="material-symbols-outlined text-[18px]">download</span>
+                                class="px-4 py-2.5 bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all flex items-center gap-2" title="Descargar Diccionario">
+                                <span class="material-symbols-outlined text-[18px]">menu_book</span>
                                 Diccionario
                             </button>
                         </div>
+
+                        <button onclick="downloadAllDiagrams()" 
+                            class="p-2.5 bg-white dark:bg-gray-800 text-primary border border-primary/20 rounded-xl hover:bg-primary/10 transition-all" title="Descargar Todos los Diagramas">
+                            <span class="material-symbols-outlined">download_for_offline</span>
+                        </button>
 
                         <div class="relative">
                             <select id="diagramTypeSelect" 

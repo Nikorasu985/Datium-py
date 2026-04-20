@@ -65,11 +65,19 @@ function updateUserUI() {
 }
 
 async function loadSystems() {
-    const res = await apiFetch('/systems');
-    if (res && res.ok) {
-        currentSystems = await res.json();
-        renderSystemsTable();
-        renderSystemsSlider();
+    try {
+        const res = await apiFetch('/systems');
+        if (res && res.ok) {
+            currentSystems = await res.json();
+            renderSystemsTable();
+            renderSystemsSlider();
+        } else {
+            console.error('Error loading systems:', res ? res.status : 'No response');
+            showError('Error al cargar sistemas. Intenta refrescar.');
+        }
+    } catch (error) {
+        console.error('Exception loading systems:', error);
+        showError('Error de red al cargar sistemas.');
     }
 }
 
@@ -733,6 +741,23 @@ function startDashboardVoice() {
     };
 
     recognition.start();
+}
+
+async function acceptTerms() {
+    try {
+        const res = await apiFetch('/autenticacion/aceptar-terminos', {
+            method: 'POST',
+            body: JSON.stringify({ version: userProfile.termsVersion })
+        });
+        if (res.ok) {
+            document.getElementById('termsModal').classList.add('hidden');
+            if (window.showSuccess) showSuccess('Términos aceptados correctamente');
+        } else {
+            if (window.showError) showError('Error al aceptar los términos');
+        }
+    } catch (e) {
+        if (window.showError) showError('Error de conexión');
+    }
 }
 
 init();

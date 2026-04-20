@@ -1,55 +1,117 @@
 checkAuth();
 
+let profileData = null;
+let availablePlans = [];
+
 async function init() {
-    await loadProfile();
+    await Promise.all([loadProfile(), loadPlans()]);
 }
 
 async function loadProfile() {
     const res = await apiFetch('/user/profile');
     if (res.ok) {
         const user = await res.json();
+        profileData = user;
 
-        document.getElementById('profileName').value = user.name || '';
-        document.getElementById('profileEmail').value = user.email || '';
-        document.getElementById('profileNameDisplay').innerText = user.name || 'Sin nombre';
-        document.getElementById('profileEmailDisplay').innerText = user.email;
+        if (document.getElementById('profileName')) document.getElementById('profileName').value = user.name || '';
+        if (document.getElementById('profileEmail')) document.getElementById('profileEmail').value = user.email || '';
+        if (document.getElementById('profilePhone')) document.getElementById('profilePhone').value = user.phone || '';
 
-        const avatarImg = document.getElementById('pageUserAvatar');
-        const initialEl = document.getElementById('pageUserInitial');
+        const sidebarName = document.getElementById('userName');
+        const sidebarEmail = document.getElementById('userEmail');
+        const sidebarInitial = document.getElementById('userInitial');
+        const sidebarAvatar = document.getElementById('userAvatar');
+        if (sidebarName) sidebarName.innerText = user.name || 'Usuario';
+        if (sidebarEmail) sidebarEmail.innerText = user.email || '...';
 
+        if (document.getElementById('displayNameMain')) document.getElementById('displayNameMain').innerText = user.name || 'Sin nombre';
+        if (document.getElementById('currentPlanName')) document.getElementById('currentPlanName').innerText = user.planName || 'Free';
+
+        const avatarImg = document.getElementById('profileAvatar');
         if (user.avatarUrl) {
-            avatarImg.src = user.avatarUrl;
-            avatarImg.classList.remove('hidden');
-            if (initialEl) initialEl.classList.add('hidden');
-        } else {
-            if (initialEl) {
-                initialEl.innerText = (user.name || 'U').charAt(0).toUpperCase();
-                initialEl.classList.remove('hidden');
+            if (avatarImg) avatarImg.src = user.avatarUrl;
+            if (sidebarAvatar) {
+                sidebarAvatar.src = user.avatarUrl;
+                sidebarAvatar.classList.remove('hidden');
             }
-            avatarImg.classList.add('hidden');
+            if (sidebarInitial) sidebarInitial.classList.add('hidden');
+        } else {
+            const initial = (user.name || 'U').charAt(0).toUpperCase();
+            if (sidebarInitial) {
+                sidebarInitial.innerText = initial;
+                sidebarInitial.classList.remove('hidden');
+            }
+            if (sidebarAvatar) sidebarAvatar.classList.add('hidden');
         }
 
-        const plans = { 1: 'Free', 2: 'Pro', 3: 'Corporate' };
-        document.getElementById('currentPlanName').innerText = user.planName || 'Gratuito';
-
-        updatePlanButtons(user.planId);
+        renderPlans();
     }
 }
 
-function updatePlanButtons(currentPlanId) {
-    const btns = document.querySelectorAll('#plansContainer button');
-    btns.forEach((btn, index) => {
-        const planId = index + 1;
-        if (planId === currentPlanId) {
-            btn.disabled = true;
-            btn.innerText = 'Actual';
-            btn.classList.remove('btn-outline-secondary', 'btn-primary', 'btn-dark');
-            btn.classList.add('btn-success');
-        } else {
-            btn.disabled = false;
-            btn.innerText = 'Seleccionar';
-        }
-    });
+async function loadPlans() {
+    try {
+        const res = await apiFetch('/admin/plans');
+        if (!res.ok) return;
+        availablePlans = await res.json();
+        renderPlans();
+    } catch (e) {
+        console.error('Error loading plans', e);
+    }
+}
+
+function getPlanTheme(planName, index) {
+    const name = String(planName || '').toLowerCase();
+    if (name.includes('pro')) return {
+        wrapper: 'border-2 border-primary bg-white dark:bg-gray-900 shadow-2xl shadow-primary/20',
+        header: 'bg-primary/5 dark:bg-primary/10',
+        button: 'bg-primary text-white hover:bg-blue-600 shadow-lg shadow-primary/30',
+        badge: '<span class="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Popular</span>'
+    };
+    if (name.includes('emp') || name.includes('corp')) return {
+        wrapper: 'border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl',
+        header: 'bg-gray-50/50 dark:bg-gray-800/50',
+        button: 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90',
+        badge: '<span class="bg-gray-900 dark:bg-white dark:text-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Premium</span>'
+    };
+    return {
+        wrapper: 'border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl',
+        header: 'bg-gray-50/50 dark:bg-gray-800/50',
+        button: 'bg-gray-100 dark:bg-gray-800 text-[#111418] dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700',
+        badge: ''
+    };
+}
+
+function renderPlans() {
+    const container = document.getElementById('plansContainer');
+    if (!container || !availablePlans.length) return;
+    const currentPlanId = profileData?.planId;
+    container.innerHTML = availablePlans.map((plan, index) => {
+        const theme = getPlanTheme(plan.name, index);
+        const isCurrent = String(plan.id) === String(currentPlanId);
+        return `
+        <div class="flex flex-col gap-6 rounded-2xl ${theme.wrapper} overflow-hidden hover-lift animate-on-scroll relative">
+            <div class="px-6 py-8 ${theme.header}">
+                <div class="flex justify-between items-start gap-3">
+                    <h4 class="text-xl font-black text-[#111418] dark:text-white mb-1">${plan.name}</h4>
+                    ${theme.badge || (isCurrent ? '<span class="bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Actual</span>' : '')}
+                </div>
+                <p class="flex items-baseline gap-1 text-[#111418] dark:text-white">
+                    <span class="text-5xl font-black tracking-tighter">$${Number(plan.price || 0)}</span>
+                    <span class="text-sm font-bold text-gray-500">/mes</span>
+                </p>
+            </div>
+            <div class="px-6 pb-8 flex flex-col h-full">
+                <div class="flex flex-col gap-4 mb-8">
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>${plan.max_systems >= 100 ? 'Sistemas ilimitados' : `${plan.max_systems} Sistemas`}</div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>${plan.max_tables_per_system >= 50 ? 'Tablas amplias por sistema' : `${plan.max_tables_per_system} Tablas por sistema`}</div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>${plan.max_storage_mb} GB/MB almacenamiento</div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>${plan.max_records_per_table} registros por tabla</div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400"><span class="material-symbols-outlined text-green-500 font-bold">check_circle</span>${plan.max_fields_per_table} campos por tabla</div>
+                </div>
+                <button onclick="changePlan('${plan.id}')" ${isCurrent ? 'disabled' : ''} class="mt-auto w-full py-4 rounded-xl font-bold text-center transition-all ${isCurrent ? 'bg-emerald-500 text-white cursor-default' : theme.button}">${isCurrent ? 'Actual' : 'Seleccionar'}</button>
+            </div>
+        </div>`;
+    }).join('');
 }
 
 async function handleAvatarChange(input) {
@@ -79,8 +141,10 @@ async function handleAvatarChange(input) {
                 const avatarImg = document.getElementById('pageUserAvatar');
                 const initialEl = document.getElementById('pageUserInitial');
 
-                avatarImg.src = newAvatarUrl;
-                avatarImg.classList.remove('hidden');
+                if (avatarImg) {
+                    avatarImg.src = newAvatarUrl;
+                    avatarImg.classList.remove('hidden');
+                }
                 if (initialEl) initialEl.classList.add('hidden');
 
                 showSuccess('Imagen actualizada correctamente');
@@ -103,25 +167,37 @@ async function updateAvatarUrl(url) {
 }
 
 async function updateProfile() {
-    const name = document.getElementById('profileName').value;
+    const nameInput = document.getElementById('profileName');
+    const phoneInput = document.getElementById('profilePhone');
+    
+    const name = nameInput ? nameInput.value : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+
+    if (!phone) {
+        return showError('El número de teléfono es obligatorio');
+    }
 
     showLoading('Guardando perfil...');
 
     const res = await apiFetch('/user/profile', {
         method: 'PUT',
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, phone })
     });
 
     if (res.ok) {
         showSuccess('Perfil actualizado exitosamente', () => loadProfile());
     } else {
-        showError('Error actualizando perfil');
+        const err = await res.json();
+        showError(err.error || 'Error actualizando perfil');
     }
 }
 
 async function changePassword() {
-    const currentPassword = document.getElementById('currentPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
+    const currentPasswordInput = document.getElementById('currentPassword');
+    const newPasswordInput = document.getElementById('newPassword');
+    
+    const currentPassword = currentPasswordInput ? currentPasswordInput.value : '';
+    const newPassword = newPasswordInput ? newPasswordInput.value : '';
 
     if (!currentPassword || !newPassword) return showError('Ambos campos son requeridos');
 
@@ -134,8 +210,8 @@ async function changePassword() {
 
     if (res.ok) {
         showSuccess('Contraseña actualizada correctamente');
-        document.getElementById('currentPassword').value = '';
-        document.getElementById('newPassword').value = '';
+        if (currentPasswordInput) currentPasswordInput.value = '';
+        if (newPasswordInput) newPasswordInput.value = '';
     } else {
         const err = await res.json();
         showError(err.error || 'Error cambiando contraseña');
@@ -145,15 +221,16 @@ async function changePassword() {
 async function changePlan(planId) {
     showConfirm('¿Estás seguro de que deseas cambiar de plan?', async () => {
         showLoading('Actualizando plan...');
-
         try {
             const res = await apiFetch('/user/plan', {
                 method: 'PUT',
                 body: JSON.stringify({ newPlanId: planId })
             });
-
             if (res.ok) {
-                showSuccess('Plan actualizado exitosamente', () => loadProfile());
+                showSuccess('Plan actualizado exitosamente', async () => {
+                    await loadProfile();
+                    await loadPlans();
+                });
             } else {
                 const err = await res.json();
                 showError(err.error || 'Error cambiando plan');

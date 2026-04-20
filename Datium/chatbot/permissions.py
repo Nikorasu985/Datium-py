@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from api.models import System, User
+from api.models import System, SystemCollaborator, User
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,10 @@ def ensure_system_access(user: User, system_id: Optional[int]) -> PermissionResu
     if system_id is None:
         return PermissionResult(True)
     exists = System.objects.filter(id=system_id, owner=user).exists()
-    if not exists:
+    if exists or getattr(user, 'role', 'user') == 'admin':
+        return PermissionResult(True)
+    collab = SystemCollaborator.objects.filter(system_id=system_id, user=user, can_read=True).exists()
+    if not collab:
         return PermissionResult(False, "No tienes permiso para acceder a este sistema.")
     return PermissionResult(True)
 
